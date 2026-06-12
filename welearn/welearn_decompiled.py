@@ -8,8 +8,18 @@ import json
 import time
 import random
 import base64
+import logging
 from requests import Session
 from threading import Thread
+
+LOG_DIR = os.environ.get("FUCKCOURSE_LOG_DIR", "")
+LOG_FILE = os.path.join(LOG_DIR, "welearn.log") if LOG_DIR else "welearn.log"
+logging.basicConfig(
+    filename=LOG_FILE,
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    encoding="utf-8",
+)
 
 session = Session()
 session.headers.update({
@@ -111,7 +121,7 @@ def validate_cookies():
 
 
 def try_auto_login(username, password):
-    print("[auto] 正在使用配置文件自动登录...")
+    logging.info("正在使用配置文件自动登录...")
     return sso_login(username, password)
 
 # 全局变量
@@ -203,7 +213,7 @@ def sso_login(username, password):
     prelogin_url = 'https://welearn.sflep.com/user/prelogin.aspx?loginret=http%3a%2f%2fwelearn.sflep.com%2fuser%2floginredirect.aspx'
     resp = sso.get(prelogin_url, allow_redirects=False)
     if 'Location' not in resp.headers:
-        print('获取登录地址失败!!')
+        logging.error('获取登录地址失败')
         return None
 
     authorize_url = resp.headers['Location']
@@ -216,7 +226,7 @@ def sso_login(username, password):
     url_params = parse_qs(parsed.query)
     rturl = unquote(url_params.get('returnUrl', [''])[0])
     if not rturl:
-        print('获取登录参数失败!!')
+        logging.error('获取登录参数失败')
         return None
 
     # Step 3: 加密密码并提交登录
@@ -244,7 +254,7 @@ def sso_login(username, password):
     try:
         result = login_resp.json()
     except Exception:
-        print(f'登录响应异常: {login_resp.text[:200]}')
+        logging.error('登录响应异常: %s', login_resp.text[:200])
         return None
 
     if result.get('code') == 0:
@@ -255,17 +265,21 @@ def sso_login(username, password):
                 redirect_url = 'https://sso.sflep.com/idsvr' + redirect_url
             # 跟随OIDC回调完成认证
             final_resp = sso.get(redirect_url, allow_redirects=True)
+        logging.info('登录成功')
         print('登录成功!!')
         return sso.cookies
     else:
         msg = result.get('msg', result.get('message', '未知错误'))
+        logging.error('登录失败: %s', msg)
         print(f'登录失败!! {msg}')
 
         # 检查是否需要验证码
         extra = result.get('extraCheck', {})
         if extra.get('vcToken'):
+            logging.warning('需要短信验证码验证')
             print('需要短信验证码验证')
         if 'captcha' in str(result).lower() or '验证码' in str(result):
+            logging.warning('需要图片验证码（连续失败次数过多）')
             print('需要图片验证码（连续失败次数过多）')
 
         return None
@@ -348,6 +362,7 @@ def startstudy(learntime, x):
     }, headers={'Referer': referrer})
 
     location = x.get("location", scoid)
+    logging.info('开始学习: %s', location)
     print(f'开始学习: {location}')
 
     # 设置CMI数据
@@ -369,9 +384,11 @@ def startstudy(learntime, x):
     print(f'>>>>>>>>>>>>>>正确率: {learntime}%')
 
     if '"ret":0' in req.text:
+        logging.info('提交成功: %s', location)
         print('提交成功!!!')
         way1Succeed.append(0)
     else:
+        logging.error('提交失败: %s', location)
         print('提交失败!!!')
         way1Failed.append(0)
 
@@ -384,9 +401,11 @@ def startstudy(learntime, x):
     }, headers={'Referer': referrer})
 
     if '"ret":0' in req.text:
+        logging.info('方式2成功: %s', location)
         print('方式2:成功!!!')
         way2Succeed.append(0)
     else:
+        logging.error('方式2失败: %s', location)
         print('方式2:失败!!!')
         way2Failed.append(0)
 
@@ -423,6 +442,7 @@ def startstudy_time(task_idx, statuses, target_time, x):
             way1Failed.append(0)
             return
     except Exception:
+        logging.warning('开始学习失败: %s', scoid, exc_info=True)
         statuses[task_idx]['status'] = '异常'
         way1Failed.append(0)
         return
@@ -453,6 +473,7 @@ def startstudy_time(task_idx, statuses, target_time, x):
             statuses[task_idx]['elapsed'] = elapsed
             time.sleep(1)
         except Exception:
+            logging.warning('keepsco 异常: %s', scoid, exc_info=True)
             time.sleep(2)
             break
 
@@ -499,9 +520,11 @@ def startstudy_time(task_idx, statuses, target_time, x):
 
     if '"ret":0' in req.text:
         statuses[task_idx]['status'] = '已完成'
+        logging.info('时长提交成功: %s', scoid)
         way1Succeed.append(0)
     else:
         statuses[task_idx]['status'] = '失败'
+        logging.error('时长提交失败: %s', scoid)
         way1Failed.append(0)
 
 
@@ -522,7 +545,7 @@ def auto_login(banner_version):
         if cookies:
             session.cookies.update(cookies)
             save_welearn_cookies()
-            print("[auto] cookies已保存")
+            logging.info("cookies已保存")
             return True
 
     # Step 2: 兜底交互式登录
@@ -584,10 +607,12 @@ if __name__ == '__main__':
         text = response.text
 
         if '"clist":[]' in text:
+            logging.error('课程列表为空，可能是登录错误或没有课程')
             print('发生错误!!!可能是登录错误或没有课程!!!')
             input('按任意键退出...')
             exit()
         else:
+            logging.info('查询课程成功')
             print('查询课程成功!!!')
 
         # 解析课程列表
@@ -619,6 +644,7 @@ if __name__ == '__main__':
         if order_str == '0':
             continue
 
+        logging.info('获取课程单元中...')
         print('获取单元中...')
 
         # 获取课程详情（带重试）
@@ -630,9 +656,11 @@ if __name__ == '__main__':
                 break
             except Exception as e:
                 if retry < 2:
+                    logging.warning('网络异常，重试(%d/3)', retry+1)
                     print(f'网络异常，正在重试({retry+1}/3)...')
                     time.sleep(2)
                 else:
+                    logging.error('获取课程详情失败: %s', e)
                     print(f'获取课程详情失败: {e}')
                     input('按任意键返回重新选择课程...')
                     continue
@@ -657,9 +685,11 @@ if __name__ == '__main__':
                 break
             except Exception as e:
                 if retry < 2:
+                    logging.warning('网络异常，重试(%d/3)', retry+1)
                     print(f'网络异常，正在重试({retry+1}/3)...')
                     time.sleep(2)
                 else:
+                    logging.error('获取单元信息失败: %s', e)
                     print(f'获取单元信息失败: {e}')
                     input('按任意键返回重新选择课程...')
                     continue
@@ -682,6 +712,7 @@ if __name__ == '__main__':
                 try:
                     sco_cache[unit_idx] = resp.json().get('info', [])
                 except Exception:
+                    logging.warning('SCO 数据解析失败: unit_idx=%d', unit_idx)
                     sco_cache[unit_idx] = []
             return sco_cache[unit_idx]
 
@@ -792,6 +823,7 @@ if __name__ == '__main__':
         skip_count = 0
         for j in index_list2:
             if j >= len(all_units):
+                logging.warning('跳过: 单元%d不存在', j+1)
                 print(f'[!!跳过!!]    单元{j+1}不存在')
                 continue
 
@@ -810,10 +842,12 @@ if __name__ == '__main__':
                     sco_data = resp.json()
                     items = sco_data.get('info', [])
                 except Exception:
+                    logging.warning('跳过: %s (数据异常)', unitname)
                     print(f'[!!跳过!!]    {unitname} (数据异常)')
                     continue
 
             if not items:
+                logging.warning('跳过: %s (无项目)', unitname)
                 print(f'[!!跳过!!]    {unitname} (无项目)')
                 continue
 
@@ -849,6 +883,7 @@ if __name__ == '__main__':
                 task_list.append({'id': scoid, 'location': location, 'learntime': learntime})
 
         if not task_list:
+            logging.warning('没有需要处理的项目')
             print('没有需要处理的项目!')
             input('按任意键退出...')
             break
@@ -909,6 +944,7 @@ if __name__ == '__main__':
 
             total_success = len(way1Succeed) + len(way2Succeed)
             total_failed = len(way1Failed) + len(way2Failed)
+            logging.info('时长模式完成: %d 成功, %d 失败', total_success, total_failed)
             print(f'全部完成!!\n')
             print(f'总计: {total_success} 成功, {total_failed} 失败')
             print('按任意键退出...')
@@ -922,12 +958,17 @@ if __name__ == '__main__':
             t.start()
             threads.append(t)
 
+        logging.info('课程模式: 启动 %d 个任务', len(threads))
         print(f'\n已启动 {len(threads)} 个任务，等待完成中...')
         for t in threads:
             t.join()
 
         total_success = len(way1Succeed) + len(way2Succeed)
         total_failed = len(way1Failed) + len(way2Failed)
+        logging.info('课程模式完成: %d 成功, %d 失败 (方式1: %d/%d, 方式2: %d/%d)',
+                     total_success, total_failed,
+                     len(way1Succeed), len(way1Failed),
+                     len(way2Succeed), len(way2Failed))
         print(f'\n\n        ****************************************************************')
         print(f'全部完成!!\n')
         print(f'总计: {total_success} 成功, {total_failed} 失败')

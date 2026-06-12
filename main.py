@@ -34,6 +34,7 @@ def _run(cwd, script_args, name):
     env = os.environ.copy()
     env["FUCKCOURSE_CONFIG"] = CONFIG_FILE
     env["FUCKCOURSE_COOKIES"] = COOKIES_FILE
+    env["FUCKCOURSE_LOG_DIR"] = os.path.join(DATA_DIR, "logs")
     print(f"\n  Starting {name}...\n")
     try:
         result = subprocess.run(
@@ -69,7 +70,7 @@ def run_welearn():
 
 def print_banner():
     print("=" * 50)
-    print("             fuckCourse v2.0.0")
+    print("             fuckCourse v2.2.2")
     print("             designed by snake")
     print("=" * 50)
     print()

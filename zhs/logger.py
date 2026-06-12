@@ -140,4 +140,6 @@ class MonoLogger:
         self._critical_hdlr.close()
         MonoLogger._logger_map.pop(self.name)
 
-logger = MonoLogger(name="root",path="./logs",to_console=False, level="DEBUG")
+_env_log_dir = os.environ.get("FUCKCOURSE_LOG_DIR", "")
+_log_path = os.path.join(_env_log_dir, "zhs_logs") if _env_log_dir else "./logs"
+logger = MonoLogger(name="root", path=_log_path, to_console=False, level="DEBUG")
