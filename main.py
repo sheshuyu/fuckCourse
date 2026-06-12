@@ -3,12 +3,17 @@ import os
 import sys
 import subprocess
 
-ROOT = os.path.dirname(os.path.abspath(__file__))
-CHAOXING_DIR = os.path.join(ROOT, "chaoxing")
-ZHS_DIR = os.path.join(ROOT, "zhs")
-WELEARN_DIR = os.path.join(ROOT, "welearn")
-COOKIES_FILE = os.path.join(ROOT, "cookies.json")
-CONFIG_FILE = os.path.join(ROOT, "config.json")
+if getattr(sys, 'frozen', False):
+    APP_DIR = sys._MEIPASS
+    DATA_DIR = os.path.dirname(sys.executable)
+else:
+    APP_DIR = os.path.dirname(os.path.abspath(__file__))
+    DATA_DIR = APP_DIR
+CHAOXING_DIR = os.path.join(APP_DIR, "chaoxing")
+ZHS_DIR = os.path.join(APP_DIR, "zhs")
+WELEARN_DIR = os.path.join(APP_DIR, "welearn")
+COOKIES_FILE = os.path.join(DATA_DIR, "cookies.json")
+CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
 
 
 def _python_exe():
@@ -40,14 +45,14 @@ def _run(cwd, script_args, name):
             env=env,
         )
         if result.returncode != 0:
-            print(f"\n  [{name}] exited with code {result.returncode}")
-        input("\n  按任意键返回菜单...")
+            print(f"\n[{name}] exited with code {result.returncode}")
+        input("\n按任意键返回菜单...")
     except KeyboardInterrupt:
-        print(f"\n  [{name}] interrupted by user")
-        input("\n  按任意键返回菜单...")
+        print(f"\n[{name}] interrupted by user")
+        input("\n按任意键返回菜单...")
     except Exception as e:
-        print(f"\n  [{name}] error: {e}")
-        input("\n  按任意键返回菜单...")
+        print(f"\n[{name}] error: {e}")
+        input("\n按任意键返回菜单...")
 
 
 def run_chaoxing():
@@ -95,7 +100,7 @@ def main():
             break
         else:
             print("  输入无效，请重新选择")
-            input("  按任意键继续...")
+            input("按任意键继续...")
 
 
 if __name__ == "__main__":

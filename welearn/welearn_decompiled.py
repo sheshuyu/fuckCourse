@@ -24,6 +24,8 @@ WELEARN_DEFAULTS = {
     "username": "",
     "password": "",
     "save_cookies": True,
+    "progressbar_view": True,
+    "tree_view": True,
 }
 
 
@@ -124,6 +126,47 @@ way2Failed = []
 
 def printline():
     print("---------------------------------------------------")
+
+
+def progress_bar(elapsed, total, length=25, fill='#'):
+    """返回进度条字符串: |#####     | 50.0%"""
+    if total <= 0:
+        return f'|{" " * length}| 0.0%'
+    pct = min(elapsed / total, 1.0)
+    bar_len = int(length * pct)
+    bar = fill * bar_len + ' ' * (length - bar_len)
+    return f'|{bar}| {pct * 100:.1f}%'
+
+
+PREFIX = "  |"
+
+
+def print_course_tree(course_name, course_per, units_data, sco_fetcher):
+    """打印课程目录树。sco_fetcher(unit_index) 返回该单元的 SCO 列表"""
+    try:
+        term_cols = os.get_terminal_size().columns - 1
+    except Exception:
+        term_cols = 79
+    print()
+    print(PREFIX)
+    print(f"{PREFIX}__{course_name} ({course_per}%)"[:term_cols])
+    for i, unit in enumerate(units_data):
+        visible = unit.get('visible') == 'true'
+        status = '' if visible else ' [未开放]'
+        print(PREFIX)
+        print(f"{PREFIX}{PREFIX}"[:term_cols])
+        print(f"{PREFIX}{PREFIX}__{unit['unitname']}{status}"[:term_cols])
+        if visible:
+            try:
+                items = sco_fetcher(i)
+            except Exception:
+                items = []
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                loc = item.get('location', item.get('id', ''))
+                done = ' [已完成]' if item.get('iscomplete') == '已完成' else ''
+                print(f"{PREFIX}{PREFIX}{PREFIX}__{loc}{done}"[:term_cols])
 
 
 # ============================================================
@@ -492,10 +535,6 @@ def auto_login(banner_version):
 
 def do_login(banner_version):
     global session
-
-    print(f'**********  {banner_version}  **********')
-    print('****************************************\n')
-
     username = input('请输入账号: ')
     password = input('请输入密码: ')
     printline()
@@ -521,7 +560,6 @@ def login_course():
 # ============================================================
 if __name__ == '__main__':
     print('**********  WeLearn 刷课工具  **********')
-    print('****************************************\n')
 
     # 先登录，再选模式
     if not auto_login('welearn'):
@@ -629,6 +667,28 @@ if __name__ == '__main__':
             continue
 
         info = response.json()
+
+        # 加载 tree_view 配置
+        welearn_config = load_welearn_config()
+        tree_view = welearn_config.get("tree_view", True)
+
+        # SCO 缓存 (unit_index -> items)，树形打印时填充，后续构建 task_list 复用
+        sco_cache = {}
+
+        def fetch_sco(unit_idx):
+            if unit_idx not in sco_cache:
+                sco_url = f'https://welearn.sflep.com/ajax/StudyStat.aspx?action=scoLeaves&cid={cid}&uid={uid}&unitidx={unit_idx}&classid={classid}'
+                resp = session.get(sco_url, headers={'Referer': course_url})
+                try:
+                    sco_cache[unit_idx] = resp.json().get('info', [])
+                except Exception:
+                    sco_cache[unit_idx] = []
+            return sco_cache[unit_idx]
+
+        if tree_view:
+            course_name = index_list[order - 1]['name']
+            course_per = index_list[order - 1].get('per', 0)
+            print_course_tree(course_name, course_per, info.get('info', []), fetch_sco)
 
         # 显示单元列表并选择（输入b返回上一级）
         while True:
@@ -738,18 +798,20 @@ if __name__ == '__main__':
             unit = all_units[j]
             unitname = unit.get('unitname', f'单元{j+1}')
 
-            # 通过scoLeaves获取该单元的所有项目
-            resp = session.get(
-                f'{sco_leaves_url}?action=scoLeaves&cid={cid}&uid={uid}&unitidx={j}&classid={classid}',
-                headers=sco_leaves_headers
-            )
-
-            try:
-                sco_data = resp.json()
-                items = sco_data.get('info', [])
-            except Exception:
-                print(f'[!!跳过!!]    {unitname} (数据异常)')
-                continue
+            # 通过scoLeaves获取该单元的所有项目（优先使用缓存）
+            if j in sco_cache:
+                items = sco_cache[j]
+            else:
+                resp = session.get(
+                    f'{sco_leaves_url}?action=scoLeaves&cid={cid}&uid={uid}&unitidx={j}&classid={classid}',
+                    headers=sco_leaves_headers
+                )
+                try:
+                    sco_data = resp.json()
+                    items = sco_data.get('info', [])
+                except Exception:
+                    print(f'[!!跳过!!]    {unitname} (数据异常)')
+                    continue
 
             if not items:
                 print(f'[!!跳过!!]    {unitname} (无项目)')
@@ -793,6 +855,8 @@ if __name__ == '__main__':
 
         # ========== 刷时长模式：多线程并发，主循环定时刷新显示 ==========
         if mode == '2':
+            welearn_config = load_welearn_config()
+            progressbar_view = welearn_config.get("progressbar_view", True)
             N = len(task_list)
             max_loc_len = max(len(t['location']) for t in task_list)
 
@@ -809,7 +873,11 @@ if __name__ == '__main__':
                     s = statuses[i]
                     st = s['status']
                     if st == '刷取中':
-                        line = f'  [{i+1:>3d}/{N}]  {loc}{pad}  {s["elapsed"]:>4d}/{s["target"]}秒'
+                        if progressbar_view:
+                            bar = progress_bar(s['elapsed'], s['target'])
+                            line = f'  [{i+1:>3d}/{N}]  {loc}{pad}  {bar} ({s["elapsed"]}/{s["target"]}秒)'
+                        else:
+                            line = f'  [{i+1:>3d}/{N}]  {loc}{pad}  {s["elapsed"]:>4d}/{s["target"]}秒'
                     elif st == '已完成':
                         line = f'  [{i+1:>3d}/{N}]  {loc}{pad}  已完成'
                     elif st == '失败':
@@ -841,9 +909,8 @@ if __name__ == '__main__':
 
             total_success = len(way1Succeed) + len(way2Succeed)
             total_failed = len(way1Failed) + len(way2Failed)
-            print(f'\n\n        ****************************************************************')
-            print(f'        全部完成!!\n')
-            print(f'        总计: {total_success} 成功, {total_failed} 失败')
+            print(f'全部完成!!\n')
+            print(f'总计: {total_success} 成功, {total_failed} 失败')
             print('按任意键退出...')
             input()
             break
@@ -862,10 +929,10 @@ if __name__ == '__main__':
         total_success = len(way1Succeed) + len(way2Succeed)
         total_failed = len(way1Failed) + len(way2Failed)
         print(f'\n\n        ****************************************************************')
-        print(f'        全部完成!!\n')
-        print(f'        总计: {total_success} 成功, {total_failed} 失败')
-        print(f'        (方式1: {len(way1Succeed)} 成功, {len(way1Failed)} 失败)')
-        print(f'        (方式2: {len(way2Succeed)} 成功, {len(way2Failed)} 失败)')
+        print(f'全部完成!!\n')
+        print(f'总计: {total_success} 成功, {total_failed} 失败')
+        print(f'(方式1: {len(way1Succeed)} 成功, {len(way1Failed)} 失败)')
+        print(f'(方式2: {len(way2Succeed)} 成功, {len(way2Failed)} 失败)')
         print('按任意键退出...')
         input()
         break  # 退出外层while True
