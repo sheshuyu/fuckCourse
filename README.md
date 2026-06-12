@@ -53,7 +53,7 @@
 ## 运行
 1.release下载exe文件,双击运行 
 
-2.运行python脚本
+2.或者运行python脚本
 ```bash
 pip install -r requirements.txt
 python main.py
