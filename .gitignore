@@ -1,0 +1,17 @@
+.vscode/
+build/
+dist/
+*.spec
+log.md
+__pycache__/
+*.pyc
+fuckcourse.log
+icon/
+config.json
+cookies.json
+zhs/logs/critical.log
+zhs/logs/debug.log
+zhs/logs/error.log
+zhs/logs/info.log
+zhs/logs/warning.log
+chaoxing/chaoxing.log

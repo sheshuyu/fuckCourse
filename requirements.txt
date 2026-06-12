@@ -1,0 +1,12 @@
+requests
+pyaes
+pycryptodome
+beautifulsoup4
+lxml
+loguru
+fonttools
+tqdm
+Pillow
+httpx
+openai
+ddddocr
