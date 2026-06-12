@@ -1,4 +1,4 @@
-# fuckCourse v2.0.0
+# fuckCourse v2.2.2
 
 超星学习通 / WE Learn / 智慧树 三合一自动刷课工具。
 
@@ -8,18 +8,40 @@
 ├── main.py                  # 统一启动器，菜单选择平台 (subprocess 调度)
 ├── config.json              # 统一配置（首次运行自动生成）
 ├── cookies.json             # 统一 cookies（登录后自动保存）
+├── requirements.txt         # Python 依赖
+├── log.md                   # 更新日志
+├── logs/                    # 运行日志（自动生成）
+│   ├── chaoxing.log
+│   ├── welearn.log
+│   └── zhs_logs/
+├── icon/                    # 应用图标
+│   └── icon.ico
 │
 ├── chaoxing/                # 超星学习通
-│   ├── main.py
-│   └── api/
+│   ├── main.py              # 入口
+│   ├── api/                 # 核心模块
+│   │   ├── base.py          # 课程/视频/文档/作业处理
+│   │   ├── answer.py        # 题库（多 provider）
+│   │   ├── decode.py        # HTML 解析（课程列表/章节树/任务点）
+│   │   ├── process.py       # 章节调度
+│   │   ├── live.py          # 直播处理
+│   │   ├── captcha.py       # 验证码识别
+│   │   ├── cipher.py        # 加密
+│   │   ├── cookies.py       # Cookie 管理
+│   │   ├── notification.py  # 消息推送
+│   │   └── ...
+│   └── resource/            # 资源文件
 │
 ├── welearn/                 # WE Learn
-│   └── welearn_decompiled.py
+│   └── welearn_decompiled.py  # 一体版（SSO 登录 + 课程/时长刷取）
 │
 └── zhs/                     # 智慧树
-    ├── main.py
-    ├── fucker.py
-    └── utils.py
+    ├── main.py              # 入口
+    ├── fucker.py            # 核心刷课逻辑
+    ├── utils.py             # 工具（进度条等）
+    ├── sign.py              # 签到
+    ├── push.py              # 推送通知
+    └── logger.py            # 日志
 ```
 
 ## 功能
@@ -45,7 +67,8 @@ python main.py
 
 ```
 ==================================================
-  fuckCourse v2.0.0
+             fuckCourse v2.2.2
+             designed by snake
 ==================================================
 
   [1] 超星学习通 (Chaoxing)
@@ -148,6 +171,8 @@ URL 格式：
 | `username` | string | `""` | WE Learn 账号 |
 | `password` | string | `""` | 登录密码 |
 | `save_cookies` | boolean | `true` | 是否持久化 cookies |
+| `tree_view` | boolean | `true` | 选课后打印课程目录树 |
+| `progressbar_view` | boolean | `true` | 时长模式显示进度条 |
 
 ### zhs — 智慧树
 
@@ -210,7 +235,9 @@ pyinstaller --onefile --console -p . --name fuckCourse \
 
 ## 架构说明
 
-v2.0 采用 subprocess 包装方案：`main.py` 通过 `subprocess.run()` 启动各平台并透传 stdin/stdout/stderr。通过环境变量 `FUCKCOURSE_CONFIG` 和 `FUCKCOURSE_COOKIES` 传递根目录 JSON 文件路径，各平台直接读写其中的对应 section。各平台完全独立运行，互不影响。
+v2.0+ 采用 subprocess 包装方案：`main.py` 通过 `subprocess.run()` 启动各平台并透传 stdin/stdout/stderr。通过环境变量 `FUCKCOURSE_CONFIG`、`FUCKCOURSE_COOKIES`、`FUCKCOURSE_LOG_DIR` 传递根目录路径，各平台直接读写对应 section 和日志。各平台完全独立运行，互不影响。
+
+PyInstaller 打包时自动检测 `sys.frozen`：代码目录指向 `_MEIPASS`（解压的模块），用户数据（config/cookies/logs）指向 exe 所在目录。
 
 ## 免责声明
 
