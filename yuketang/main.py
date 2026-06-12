@@ -125,7 +125,8 @@ COOKIE_STRING, UNIVERSITY_ID = _ensure_login()
 if getattr(sys, 'frozen', False):
     OUTPUT_DIR = os.path.join(os.path.dirname(sys.executable), "ppt_downloads")
 else:
-    OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ppt_downloads")
+    _proj_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    OUTPUT_DIR = os.path.join(_proj_root, "ppt_downloads")
 
 # ============================================================
 #   以下内容无需修改

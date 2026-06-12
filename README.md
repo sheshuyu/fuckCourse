@@ -258,7 +258,7 @@ pyinstaller --onefile --console -p . --name fuckCourse \
 - 超星：基于 [Samueli924/chaoxing](https://github.com/Samueli924/chaoxing)
 - WE Learn：基于 [Fanyuchang2026/welearn-helper](https://github.com/Fanyuchang2026/welearn-helper)
 - 智慧树：基于 [VermiIIi0n/fuckZHS](https://github.com/VermiIIi0n/fuckZHS)
-- 雨课堂：原创实现
+- 雨课堂：基于 [EdibleSalt/yuketang-ppt-downloader](https://github.com/EdibleSalt/yuketang-ppt-downloader)
 
 ## 架构说明
 
@@ -279,7 +279,7 @@ PyInstaller 打包时自动检测 `sys.frozen`：代码目录指向 `_MEIPASS`�
 | chaoxing | [Samueli924/chaoxing](https://github.com/Samueli924/chaoxing) | GPL-3.0 |
 | welearn | [Fanyuchang2026/welearn-helper](https://github.com/Fanyuchang2026/welearn-helper) | MIT |
 | zhs | [VermiIIi0n/fuckZHS](https://github.com/VermiIIi0n/fuckZHS) | 无 |
-| yuketang | 原创 | GPL-3.0 |
+| yuketang | [EdibleSalt/yuketang-ppt-downloader](https://github.com/EdibleSalt/yuketang-ppt-downloader) | 无 |
 
 详见 [LICENSE](LICENSE)。
 
