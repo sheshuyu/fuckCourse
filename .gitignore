@@ -10,3 +10,25 @@ icon/
 config.json
 cookies.json
 logs/
+# 配置（含 Cookie / sessionid，绝对不能提交）
+yuketang_config.py
+yuketang_config.json
+
+# 下载产物
+ppt_downloads/
+output/
+*.pdf
+
+# Python
+*.egg-info/
+.venv/
+venv/
+env/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+.playwright-cli/
+.claude/

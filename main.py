@@ -12,6 +12,7 @@ else:
 CHAOXING_DIR = os.path.join(APP_DIR, "chaoxing")
 ZHS_DIR = os.path.join(APP_DIR, "zhs")
 WELEARN_DIR = os.path.join(APP_DIR, "welearn")
+YUKETANG_DIR = os.path.join(APP_DIR, "yuketang")
 COOKIES_FILE = os.path.join(DATA_DIR, "cookies.json")
 CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
 
@@ -68,9 +69,13 @@ def run_welearn():
     _run(WELEARN_DIR, ["welearn_decompiled.py"], "welearn")
 
 
+def run_yuketang():
+    _run(YUKETANG_DIR, ["main.py"], "yuketang")
+
+
 def print_banner():
     print("=" * 50)
-    print("             fuckCourse v2.2.2")
+    print("             fuckCourse v3.0.0-dev")
     print("             designed by snake")
     print("=" * 50)
     print()
@@ -83,9 +88,10 @@ def main():
         print("  [1] 超星学习通 (Chaoxing)")
         print("  [2] WE Learn (SFLEP)")
         print("  [3] 智慧树 (ZHS)")
+        print("  [4] 雨课堂 (Yuketang)")
         print("  [0] 退出")
         print()
-        choice = input("  请选择平台 (0-3): ").strip()
+        choice = input("  请选择平台 (0-4): ").strip()
 
         if choice == "1":
             clear()
@@ -96,11 +102,14 @@ def main():
         elif choice == "3":
             clear()
             run_zhs()
+        elif choice == "4":
+            clear()
+            run_yuketang()
         elif choice == "0":
-            print("\n  再见!")
+            print("\n再见!")
             break
         else:
-            print("  输入无效，请重新选择")
+            print("输入无效，请重新选择")
             input("按任意键继续...")
 
 
