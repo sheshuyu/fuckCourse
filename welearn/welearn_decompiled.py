@@ -523,21 +523,18 @@ if __name__ == '__main__':
     print('**********  WeLearn 刷课工具  **********')
     print('****************************************\n')
 
+    # 先登录，再选模式
+    if not auto_login('welearn'):
+        input('登录失败，按任意键退出...')
+        exit()
+
     while True:
         os.system('cls')
         mode = input('请选择Welearn刷课模式: \n   1.Welearn课程刷取\n   2.Welearn时长刷取\n\n请输入数字1或2: ')
 
         os.system('cls')
 
-        if mode == '1':
-            if not login_course():
-                input('登录失败，按任意键退出...')
-                exit()
-        elif mode == '2':
-            if not login_time():
-                input('登录失败，按任意键退出...')
-                exit()
-        else:
+        if mode not in ('1', '2'):
             print('输入无效，请重新选择！')
             input('按任意键继续...')
             continue
@@ -869,7 +866,6 @@ if __name__ == '__main__':
         print(f'        总计: {total_success} 成功, {total_failed} 失败')
         print(f'        (方式1: {len(way1Succeed)} 成功, {len(way1Failed)} 失败)')
         print(f'        (方式2: {len(way2Succeed)} 成功, {len(way2Failed)} 失败)')
-        print(f'\n        **********    有问题请邮件联系Fanyuc0418@gmail.com    **********')
         print('按任意键退出...')
         input()
         break  # 退出外层while True

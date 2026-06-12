@@ -64,7 +64,8 @@ def run_welearn():
 
 def print_banner():
     print("=" * 50)
-    print("  fuckCourse v2.0.0")
+    print("             fuckCourse v2.0.0")
+    print("             designed by snake")
     print("=" * 50)
     print()
 

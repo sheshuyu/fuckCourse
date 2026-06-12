@@ -31,12 +31,13 @@
 | 智慧树 | Y | Y | Y | — | Y |
 
 ## 运行
-1.运行python脚本
+1.release下载exe文件,双击运行 
+
+2.运行python脚本
 ```bash
 pip install -r requirements.txt
 python main.py
 ```
-2.release下载exe文件,双击运行
 
 ## 使用流程
 
