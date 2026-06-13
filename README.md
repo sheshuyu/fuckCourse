@@ -253,6 +253,9 @@ pyinstaller --onefile --console -p . --name fuckCourse \
 
 `<conda_env>` 替换为 conda 环境路径。首次 build 后生成 `fuckCourse.spec`，后续 rebuild 只需 `pyinstaller fuckCourse.spec`。
 
+## 联系
+有任何问题欢迎联系 sheshuyu1117@gmail.com
+
 ## 致谢
 
 - 超星：基于 [Samueli924/chaoxing](https://github.com/Samueli924/chaoxing)
@@ -262,7 +265,11 @@ pyinstaller --onefile --console -p . --name fuckCourse \
 
 ## 架构说明
 
-v2.0+ 采用 subprocess 包装方案：`main.py` 通过 `subprocess.run()` 启动各平台并透传 stdin/stdout/stderr。通过环境变量 `FUCKCOURSE_CONFIG`、`FUCKCOURSE_COOKIES`、`FUCKCOURSE_LOG_DIR` 传递根目录路径，各平台直接读写对应 section 和日志。各平台完全独立运行，互不影响。
+v3.0+ 双模式调度：
+- **开发模式**：`subprocess.run()` 启动各平台，透传 stdin/stdout/stderr
+- **frozen 模式**：`exec(compile(...))` 进程内加载模块脚本，避免双进程竞争 stdin
+
+通过环境变量 `FUCKCOURSE_CONFIG`、`FUCKCOURSE_COOKIES`、`FUCKCOURSE_LOG_DIR` 传递根目录路径，各平台直接读写对应 section 和日志。各平台完全独立运行，互不影响。
 
 PyInstaller 打包时自动检测 `sys.frozen`：代码目录指向 `_MEIPASS`（解压的模块），用户数据（config/cookies/logs）指向 exe 所在目录。
 

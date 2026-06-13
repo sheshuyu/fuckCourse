@@ -1,7 +1,6 @@
-"""fuckCourse v2.0.0 — unified launcher for three independent course tools."""
+"""fuckCourse v3.0.0-dev — unified launcher for course automation tools."""
 import os
 import sys
-import subprocess
 
 if getattr(sys, 'frozen', False):
     APP_DIR = sys._MEIPASS
@@ -15,6 +14,7 @@ WELEARN_DIR = os.path.join(APP_DIR, "welearn")
 YUKETANG_DIR = os.path.join(APP_DIR, "yuketang")
 COOKIES_FILE = os.path.join(DATA_DIR, "cookies.json")
 CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
+LOG_DIR = os.path.join(DATA_DIR, "logs")
 
 
 def _python_exe():
@@ -30,13 +30,54 @@ def clear():
     os.system("cls" if os.name == "nt" else "clear")
 
 
+def _setup_env():
+    os.makedirs(LOG_DIR, exist_ok=True)
+    os.environ["FUCKCOURSE_CONFIG"] = CONFIG_FILE
+    os.environ["FUCKCOURSE_COOKIES"] = COOKIES_FILE
+    os.environ["FUCKCOURSE_LOG_DIR"] = LOG_DIR
+
+
 def _run(cwd, script_args, name):
+    _setup_env()
+    print(f"\n  Starting {name}...\n")
+
+    if getattr(sys, 'frozen', False):
+        _run_frozen(cwd, script_args, name)
+    else:
+        _run_subprocess(cwd, script_args, name)
+
+
+def _run_frozen(cwd, script_args, name):
+    script_path = os.path.join(cwd, script_args[0])
+    old_argv = sys.argv
+    old_cwd = os.getcwd()
+    old_path = list(sys.path)
+    try:
+        os.chdir(cwd)
+        if cwd not in sys.path:
+            sys.path.insert(0, cwd)
+        sys.argv = [script_path] + script_args[1:]
+        with open(script_path, "rb") as f:
+            code = compile(f.read(), script_path, "exec")
+        _ns = {"__name__": "__main__", "__file__": script_path, "exit": sys.exit}
+        exec(code, _ns)
+    except SystemExit:
+        pass
+    except KeyboardInterrupt:
+        print(f"\n[{name}] interrupted by user")
+    except Exception as e:
+        print(f"\n[{name}] error: {e}")
+    finally:
+        sys.argv = old_argv
+        os.chdir(old_cwd)
+        sys.path[:] = old_path
+    input("\n按任意键返回菜单...")
+
+
+def _run_subprocess(cwd, script_args, name):
+    import subprocess
     python = _python_exe()
     env = os.environ.copy()
-    env["FUCKCOURSE_CONFIG"] = CONFIG_FILE
-    env["FUCKCOURSE_COOKIES"] = COOKIES_FILE
-    env["FUCKCOURSE_LOG_DIR"] = os.path.join(DATA_DIR, "logs")
-    print(f"\n  Starting {name}...\n")
     try:
         result = subprocess.run(
             [python] + script_args,
