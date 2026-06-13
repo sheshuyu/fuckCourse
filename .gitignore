@@ -32,3 +32,5 @@ env/
 Thumbs.db
 .playwright-cli/
 .claude/
+
+fuckCourse.code-workspace
