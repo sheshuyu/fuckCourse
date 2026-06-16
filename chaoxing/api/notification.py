@@ -31,7 +31,7 @@ class NotificationService(ABC):
     def config_set(self, config: Dict[str, str]) -> None:
         """
         设置通知服务的配置
-        
+
         Args:
             config: 包含配置参数的字典
         """
@@ -40,7 +40,7 @@ class NotificationService(ABC):
     def _load_config_from_file(self) -> Optional[Dict[str, str]]:
         """
         从配置文件中加载通知服务的配置
-        
+
         Returns:
             成功返回配置字典，失败返回None
         """
@@ -72,7 +72,7 @@ class NotificationService(ABC):
     def _send(self, message: str) -> None:
         """
         发送通知消息，由子类实现
-        
+
         Args:
             message: 要发送的消息内容
         """
@@ -81,40 +81,12 @@ class NotificationService(ABC):
     def send(self, message: str) -> None:
         """
         发送通知消息的公共接口
-        
+
         Args:
             message: 要发送的消息内容
         """
         if not self.disabled:
             self._send(message)
-
-
-class NotificationFactory:
-    """
-    通知服务工厂类，用于创建和获取通知服务实例
-    """
-
-    @staticmethod
-    def create_service(config: Optional[Dict[str, str]] = None) -> NotificationService:
-        """
-        根据配置创建通知服务实例
-        
-        Args:
-            config: 通知服务的配置，如果为None则从配置文件加载
-            
-        Returns:
-            通知服务实例
-        """
-        service = DefaultNotification()
-
-        if config:
-            service.config_set(config)
-
-        # 尝试获取具体的通知服务
-        service = service.get_notification_from_config()
-        service.init_notification()
-
-        return service
 
 
 class DefaultNotification(NotificationService):
@@ -131,7 +103,7 @@ class DefaultNotification(NotificationService):
     def get_notification_from_config(self) -> NotificationService:
         """
         根据配置创建具体的通知服务实例
-        
+
         Returns:
             通知服务实例
         """
@@ -182,7 +154,7 @@ class ServerChan(NotificationService):
     def _send(self, message: str) -> None:
         """
         通过Server酱发送通知
-        
+
         Args:
             message: 要发送的消息内容
         """
@@ -223,7 +195,7 @@ class Qmsg(NotificationService):
     def _send(self, message: str) -> None:
         """
         通过Qmsg酱发送通知
-        
+
         Args:
             message: 要发送的消息内容
         """
@@ -259,7 +231,7 @@ class Bark(NotificationService):
     def _send(self, message: str) -> None:
         """
         通过Bark发送通知
-        
+
         Args:
             message: 要发送的消息内容
         """
@@ -274,6 +246,7 @@ class Bark(NotificationService):
             logger.error(f"Bark通知发送失败: {e}")
         except ValueError as e:
             logger.error(f"Bark返回数据解析失败: {e}")
+
 
 class Telegram(NotificationService):
     """
@@ -293,7 +266,7 @@ class Telegram(NotificationService):
     def _send(self, message: str) -> None:
         """
         通过Telegram发送通知
-        
+
         Args:
             message: 要发送的消息内容
         """
@@ -315,6 +288,7 @@ class Telegram(NotificationService):
             logger.error(f"Telegram通知发送失败: {e}")
         except ValueError as e:
             logger.error(f"Telegram返回数据解析失败: {e}")
+
 
 # 为了向后兼容，保留原来的Notification类
 Notification = DefaultNotification

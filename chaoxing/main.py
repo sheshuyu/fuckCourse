@@ -13,7 +13,7 @@ from queue import PriorityQueue, ShutDown
 from typing import Any
 
 from api.answer import Tiku
-from api.base import Chaoxing, Account, StudyResult
+from api.base import Chaoxing, Account, StudyResult, _save_credentials_to_config
 from api.exceptions import LoginError, InputFormatError
 from api.logger import logger
 from api.notification import Notification
@@ -196,28 +196,6 @@ def load_config_from_root():
     return common, tiku, notification
 
 
-def _save_chaoxing_credentials(username, password):
-    """保存账号密码到根 config.json"""
-    config_path = os.environ.get("FUCKCOURSE_CONFIG", "")
-    if not config_path:
-        return
-    root = {}
-    if os.path.isfile(config_path):
-        with open(config_path, "r", encoding="utf-8") as f:
-            try:
-                root = json.load(f)
-            except json.JSONDecodeError:
-                root = {}
-    section = root.get("chaoxing", {})
-    if "common" not in section:
-        section["common"] = {}
-    section["common"]["username"] = username
-    section["common"]["password"] = password
-    root["chaoxing"] = section
-    with open(config_path, "w", encoding="utf-8") as f:
-        json.dump(root, f, indent=4, ensure_ascii=False)
-
-
 def build_config_from_args(args):
     """从命令行参数构建配置"""
     common_config = {
@@ -275,7 +253,7 @@ def init_chaoxing(common_config, tiku_config):
         username = input("请输入你的手机号, 按回车确认\n手机号:")
         password = input("请输入你的密码, 按回车确认\n密码:")
         if username and password:
-            _save_chaoxing_credentials(username, password)
+            _save_credentials_to_config(username, password)
 
     account = Account(username, password)
     

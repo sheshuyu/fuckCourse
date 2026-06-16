@@ -76,27 +76,6 @@ def getEv(data:list, key:str="zzpttjd"):
         ev += tmp[-4:] # actually -2 is fine, but their sauce code said -4
     return ev
 
-def revEv(ev:str, key:str="zzpttjd"):
-    """
-    key: d26666->zzpttjd (default)
-         d24444->zhihuishu
-    """
-    def gen():
-        while True:
-            for c in key:
-                yield ord(c)
-    gen = gen()
-    ev = list(ev)
-    ls = []
-    ret = ""
-    while ev:
-        d2,d1 = ev.pop(),ev.pop()
-        c = int(d1+d2, 16)
-        ls.append(c)
-    for c in ls[::-1]:
-        ret += chr(c^next(gen))
-    return ret
-
 if __name__ == "__main__":
     v = Cipher()
     h = Cipher(HOME_KEY)

@@ -5,10 +5,8 @@ import os
 from utils import getRealPath
 
 class MonoLogger:
-    _logger_map = {}
     def __init__(self, name: str = "root", level: str | int = "WARNING", path: str = None,
                  formatter: logging.Formatter | str = None, to_console: bool = True):
-        MonoLogger._logger_map.update({name: self})
         self._name = name
         if not path:
             path = os.path.join(os.getcwd(), name + ".logs")
@@ -125,20 +123,12 @@ class MonoLogger:
     def level(self, level: str|int):
         self.setLevel(level)
 
-    @staticmethod
-    def getLogger(name: str):
-        if name in MonoLogger._logger_map:
-            return MonoLogger._logger_map[name]
-        else:
-            return MonoLogger(name)
-
     def __del__(self):
         self._debug_hdlr.close()
         self._info_hdlr.close()
         self._warning_hdlr.close()
         self._error_hdlr.close()
         self._critical_hdlr.close()
-        MonoLogger._logger_map.pop(self.name)
 
 _env_log_dir = os.environ.get("FUCKCOURSE_LOG_DIR", "")
 _log_path = os.path.join(_env_log_dir, "zhs_logs") if _env_log_dir else "./logs"

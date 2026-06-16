@@ -24,6 +24,13 @@ disable_warnings(exceptions.InsecureRequestWarning)
 
 __all__ = ["CacheDAO", "Tiku", "TikuFallback", "TikuYanxi", "TikuGo", "TikuLike", "TikuAdapter", "AI", "SiliconFlow"]
 
+
+def _remove_md_json_wrapper(md_str):
+    """去除 Markdown JSON 代码块包装，提取纯 JSON 内容"""
+    pattern = r'^\s*```(?:json)?\s*(.*?)\s*```\s*$'
+    match = re.search(pattern, md_str, re.DOTALL)
+    return match.group(1).strip() if match else md_str.strip()
+
 class CacheDAO:
     """
     @Author: SocialSisterYi
@@ -1002,12 +1009,6 @@ class AI(Tiku):
                 time.sleep(sleep_time)
 
     def _query(self, q_info: dict):
-        def remove_md_json_wrapper(md_str):
-            # 使用正则表达式匹配Markdown代码块并提取内容
-            pattern = r'^\s*```(?:json)?\s*(.*?)\s*```\s*$'
-            match = re.search(pattern, md_str, re.DOTALL)
-            return match.group(1).strip() if match else md_str.strip()
-
         if self.http_proxy:
             proxy = self.http_proxy
             httpx_client = httpx.Client(proxy=proxy)
@@ -1093,7 +1094,7 @@ class AI(Tiku):
             ))
 
         try:
-            response = json.loads(remove_md_json_wrapper(completion.choices[0].message.content))
+            response = json.loads(_remove_md_json_wrapper(completion.choices[0].message.content))
             sep = "\n"
             return sep.join(response['Answer']).strip()
         except:
@@ -1154,12 +1155,6 @@ class SiliconFlow(Tiku):
         self.last_request_time = None
 
     def _query(self, q_info: dict):
-        def remove_md_json_wrapper(md_str):
-            # 解析可能存在的JSON包装
-            pattern = r'^\s*```(?:json)?\s*(.*?)\s*```\s*$'
-            match = re.search(pattern, md_str, re.DOTALL)
-            return match.group(1).strip() if match else md_str.strip()
-
         # 构造请求头
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -1217,7 +1212,7 @@ class SiliconFlow(Tiku):
             if response.status_code == 200:
                 result = response.json()
                 content = result['choices'][0]['message']['content']
-                parsed = json.loads(remove_md_json_wrapper(content))
+                parsed = json.loads(_remove_md_json_wrapper(content))
                 return "\n".join(parsed['Answer']).strip()
             else:
                 logger.error(f"API请求失败：{response.status_code} {response.text}")

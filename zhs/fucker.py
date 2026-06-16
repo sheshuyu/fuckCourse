@@ -251,50 +251,6 @@ class Fucker:
             logger.exception(e)
             raise Exception(f"QR login failed: {e}")
 
-#    def _qrlogin(self, qr_callback):
-#        """Login using qr code"""
-#        login_page = "https://passport.zhihuishu.com/login?service=https://onlineservice-api.zhihuishu.com/login/gologin"
-#        qr_page = "https://passport.zhihuishu.com/qrCodeLogin/getLoginQrImg"
-#        self._sessionReady()
-#        async def wait(url):
-#            async with websockets.connect(url, extra_headers=self.headers) as websocket:
-#                while True:
-#                    msg = await websocket.recv()
-#                    msg = ObjDict(json.loads(msg), default=None)
-#                    logger.debug(f"QR login received {msg}")
-#                    match msg.code:
-#                        case 0:
-#                            logger.info(f"QR Scanned: {msg.msg}")
-#                            print("QR Scanned")
-#                        case 1:
-#                            logger.info(f"One-time code get: {msg.msg}")
-#                            print("One-time code received")
-#                            self.session.get(login_page, params={"pwd":msg.oncePassword}, proxies=self.proxies, timeout=10)
-#                            self.cookies = self.session.cookies.copy()
-#                            if not self.cookies:
-#                                raise Exception("No cookies found")
-#                            logger.info("Login successful")
-#                            break
-#                        case 2:
-#                            print("QR code expired")
-#                            raise TimeLimitExceeded(f"QR code expired: {msg.msg}")
-#                        case 3:
-#                            raise Exception(f"Login canceled")
-#                        case _:
-#                            raise Exception(f"Unknown Response {msg.msg}")
-#        try:
-#            r = self.session.get(qr_page, timeout=10).json()
-#            qrToken = r["qrToken"]
-#            img = b64decode(r["img"])
-#            qr_callback(img)
-#            logger.debug("Start QR login WebSocket")
-#            asyncio.run(wait(f"wss://appcomm-user.zhihuishu.com/app-commserv-user/websocket?qrToken={qrToken}"))
-#        except TimeLimitExceeded:
-#            self._qrlogin(qr_callback) # timeout? try again!
-#        except Exception as e:
-#            logger.exception(e)
-#            raise Exception(f"QR login failed: {e}")
-
     def fuckWhatever(self):
         """Fuck whatever is found"""
         zhidao_ids = [c.secret for c in self.getZhidaoList()]
@@ -581,12 +537,6 @@ class Fucker:
                 self.saveDatabaseIntervalTimeV2(RAC_id,video_id,played_time,last_submit,wp.get(),token_id)
                 last_submit = played_time # update last pause time
                 wp.reset(played_time)     # reset watch point
-            ## report to cache
-            if False and elapsed_time % cache_interval == 0:
-                wp.add(played_time)
-                self.saveCacheIntervalTime(RAC_id,video_id,played_time,last_submit,wp.get(),token_id)
-                last_submit = played_time # update last pause time
-                wp.reset(played_time)     # reset watch point
             ### end events
             # print progress bar
             s, e = [60-pause, 60] if pause else [played_time, end_time]
@@ -655,10 +605,6 @@ class Fucker:
         chapters.default = [] # set default value for non exist attribute
         return chapters
 
-    def queryStudyReadBefore(self, course_id, recruit_id):
-        '''### query study read before for zhidao share course'''
-        read_url = "https://studyservice-api.zhihuishu.com/gateway/t/v1/learning/queryStudyReadBefore"
-        return self.zhidaoQuery(read_url, data={"courseId": course_id, "recruitId": recruit_id}, ok_code=None).data
 
     def queryStudyInfo(self, lesson_ids:list, video_ids:list, recruit_id):
         '''### query study info for zhidao'''
@@ -740,34 +686,6 @@ class Fucker:
         }
         return self.zhidaoQuery(subQ_url, data).data
 
-    def saveDatabaseIntervalTime(self, RAC_id, video_id, played_time, last_submit, watch_point, token_id=None):
-        '''### save database interval time for zhidao'''
-        record_url = "https://studyservice-api.zhihuishu.com/gateway/t/v1/learning/saveDatabaseIntervalTime"
-        ctx = self.getZhidaoContext(RAC_id)
-        recruit_id = ctx.course.recruitId
-        video = ctx.videos[video_id]
-        raw_ev = [
-            recruit_id,
-            video.lessonId, # this.lessonId
-            video.id, # this.smallLessonId
-            video.videoId, # this.videoId
-            video.chapterId, # this.chapterId
-            '0', # this.data.studyStatus, always 0
-            int(played_time-last_submit), # this.playTimes
-            int(played_time), # this.totalStudyTime
-            HMS(seconds=min(video.videoSec, # more realistic
-                            int(played_time+randint(29,31)))) 
-        ]
-        if not token_id:
-            token_id = self.prelearningNote(RAC_id, video_id).studiedLessonDto.id
-            token_id = b64encode(str(token_id).encode()).decode()
-        data = {
-            "watchPoint": watch_point,
-            "ev": getEv(raw_ev),
-            "learningTokenId": token_id
-        }
-        return self.zhidaoQuery(record_url, data=data).data
-
     def threeDimensionalCourseWare(self, video_id):
         '''### query three dimensional course ware for zhidao'''
         ware_url = "https://studyservice-api.zhihuishu.com/gateway/t/v1/course/threeDimensionalCourseWare"
@@ -818,36 +736,6 @@ class Fucker:
         if initial:
             data.pop("courseId")
         return self.zhidaoQuery(record_url, data=data).data
-
-    def saveCacheIntervalTime(self, RAC_id, video_id, played_time, last_submit, watch_point, token_id=None):
-        '''### save cache interval time for zhidao'''
-        cache_url  = "https://studyservice-api.zhihuishu.com/gateway/t/v1/learning/saveCacheIntervalTime"
-        ctx = self.getZhidaoContext(RAC_id)
-        recruit_id = ctx.course.recruitId
-        course_id = ctx.chapters.courseId
-        video = ctx.videos[video_id]
-        #!! NOTICE: content is different from database
-        raw_ev = [
-            recruit_id,
-            video.chapterId,
-            course_id,
-            video.lessonId,
-            HMS(seconds=min(video.videoSec, # more realistic
-                            int(played_time+randint(10,20)))),
-            int(played_time),
-            video.videoId,
-            video.id,
-            int(played_time-last_submit),
-        ]
-        if not token_id:
-            token_id = self.prelearningNote(RAC_id, video_id).studiedLessonDto.id
-            token_id = b64encode(str(token_id).encode()).decode()
-        data = {
-            "watchPoint": watch_point,
-            "ev": getEv(raw_ev),
-            "learningTokenId": token_id
-        }
-        return self.zhidaoQuery(cache_url, data=data).data
 
 # end of zhidao methods
 #############################################

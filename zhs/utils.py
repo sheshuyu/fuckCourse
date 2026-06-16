@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 import io
 import os
-import sys
 from requests.cookies import RequestsCookieJar, create_cookie
 from PIL import Image, ImageOps
 from datetime import timedelta
@@ -10,9 +9,6 @@ from datetime import timedelta
 
 def HMS(*args, **kw):
     return str(timedelta(*args, **kw))
-
-def strToClass(class_name: str, module: str="__main__"):
-    return getattr(sys.modules[module], class_name)
 
 def showImage(img, show_in_terminal=False, ensure_unicode=False):
     if show_in_terminal:

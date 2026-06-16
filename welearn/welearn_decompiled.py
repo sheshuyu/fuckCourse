@@ -88,11 +88,6 @@ def _write_root_cookies(data):
         json.dump(data, f, indent=4, ensure_ascii=False)
 
 
-def load_welearn_cookies():
-    root = _read_root_cookies()
-    return root.get("welearn", {})
-
-
 def save_welearn_cookies():
     root = _read_root_cookies()
     cookie_dict = {}
@@ -100,24 +95,6 @@ def save_welearn_cookies():
         cookie_dict[cookie.name] = cookie.value
     root["welearn"] = cookie_dict
     _write_root_cookies(root)
-
-
-def validate_cookies():
-    try:
-        resp = session.get(
-            "https://welearn.sflep.com/student/index.aspx",
-            timeout=10,
-            allow_redirects=False,
-        )
-        if resp.status_code in (301, 302):
-            location = resp.headers.get("Location", "")
-            if "login" in location.lower():
-                return False
-        if resp.status_code == 200:
-            return True
-        return False
-    except Exception:
-        return False
 
 
 def try_auto_login(username, password):
@@ -568,14 +545,6 @@ def do_login(banner_version):
         _save_welearn_credentials(username, password)
         return True
     return False
-
-
-def login_time():
-    return auto_login('welearn时长版')
-
-
-def login_course():
-    return auto_login('welearn课程版')
 
 
 # ============================================================

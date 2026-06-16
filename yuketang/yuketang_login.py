@@ -164,17 +164,6 @@ def save_config(cookie_str=None, university_id=None, classroom_ids=None):
 # ── cookie helpers ──────────────────────────────────────────────────
 
 
-def parse_cookie_string(cookie_str):
-    """把浏览器 cookie 字符串解析为 dict"""
-    cookies = {}
-    for item in cookie_str.split(";"):
-        item = item.strip()
-        if "=" in item:
-            key, value = item.split("=", 1)
-            cookies[key.strip()] = value.strip()
-    return cookies
-
-
 def cookie_dict_to_string(cookie_dict):
     """把 cookie dict 转回字符串"""
     return "; ".join(f"{k}={v}" for k, v in cookie_dict.items())

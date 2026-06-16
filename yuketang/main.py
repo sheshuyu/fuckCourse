@@ -22,7 +22,7 @@ from PIL import Image
 # ── 自动扫码登录 ────────────────────────────────────────────────────
 from yuketang_login import (
     load_config, save_config, validate_cookies, qr_login,
-    parse_cookie_string, fetch_classroom_list,
+    fetch_classroom_list,
 )
 
 _here = Path(__file__).parent
