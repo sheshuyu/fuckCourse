@@ -17,6 +17,7 @@ import io
 import logging
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
 from pathlib import Path
 from PIL import Image
 
@@ -119,7 +120,7 @@ def _resolve_classroom_ids():
 
     # 3. 从 API 获取课堂列表，让用户选
     print("正在获取课堂列表...")
-    courses = fetch_classroom_list(COOKIE_STRING)
+    courses = fetch_classroom_list(_get_cookies())
     if not courses:
         print("未找到任何课堂，请确认已选课。")
         raw = input("请输入课堂 ID（多个用逗号分隔）: ").strip()
@@ -135,7 +136,23 @@ def _resolve_classroom_ids():
     return [c["id"] for c in selected]
 
 
-COOKIE_STRING, UNIVERSITY_ID = _ensure_login()
+_COOKIE = None
+_UNI_ID = None
+
+
+def _get_cookies():
+    """延迟初始化：首次访问时才触发登录，避免 import 时副作用"""
+    global _COOKIE, _UNI_ID
+    if _COOKIE is None:
+        _COOKIE, _UNI_ID = _ensure_login()
+    return _COOKIE
+
+
+def _get_uni_id():
+    global _COOKIE, _UNI_ID
+    if _COOKIE is None:
+        _COOKIE, _UNI_ID = _ensure_login()
+    return _UNI_ID
 
 # ── 配置 ────────────────────────────────────────────────────────────
 
@@ -175,8 +192,8 @@ def build_session(cookies: dict, classroom_id: str) -> requests.Session:
         "X-Client": "web",
         "Xt-Agent": "web",
         "classroom-id": classroom_id,
-        "university-id": UNIVERSITY_ID,
-        "uv-id": UNIVERSITY_ID,
+        "university-id": _get_uni_id(),
+        "uv-id": _get_uni_id(),
         "xtbz": "ykt",
         "Referer": f"{BASE_URL}/v2/web/studentLog/{classroom_id}",
     })
@@ -272,7 +289,6 @@ def safe_filename(name: str) -> str:
 
 def _select_lessons(lessons: list) -> list:
     """交互选择要下载的课件，返回选中的 lesson 列表"""
-    from datetime import datetime
 
     def _label(lesson):
         ts = lesson.get("create_time", 0)
@@ -356,7 +372,7 @@ def main():
         print("[错误] 未指定任何课堂 ID。")
         sys.exit(1)
 
-    cookies = parse_cookies(COOKIE_STRING)
+    cookies = parse_cookies(_get_cookies())
     root = Path(OUTPUT_DIR)
 
     logging.info("开始下载，共 %d 个课堂", len(classroom_ids))

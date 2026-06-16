@@ -20,14 +20,11 @@ LOG_DIR = os.path.join(DATA_DIR, "logs")
 def _python_exe():
     if "CONDA_PREFIX" in os.environ:
         return sys.executable
-    conda_python = r"D:\CondaEnvs\fuckcourse\python.exe"
-    if os.path.isfile(conda_python):
-        return conda_python
     return sys.executable
 
 
 def clear():
-    os.system("cls" if os.name == "nt" else "clear")
+    print("\033[2J\033[H", end="")
 
 
 def _setup_env():
@@ -71,7 +68,6 @@ def _run_frozen(cwd, script_args, name):
         sys.argv = old_argv
         os.chdir(old_cwd)
         sys.path[:] = old_path
-    input("\n按任意键返回菜单...")
 
 
 def _run_subprocess(cwd, script_args, name):
@@ -89,13 +85,16 @@ def _run_subprocess(cwd, script_args, name):
         )
         if result.returncode != 0:
             print(f"\n[{name}] exited with code {result.returncode}")
-        input("\n按任意键返回菜单...")
+        print()
+        input("按任意键返回菜单...")
     except KeyboardInterrupt:
         print(f"\n[{name}] interrupted by user")
-        input("\n按任意键返回菜单...")
+        print()
+        input("按任意键返回菜单...")
     except Exception as e:
         print(f"\n[{name}] error: {e}")
-        input("\n按任意键返回菜单...")
+        print()
+        input("按任意键返回菜单...")
 
 
 def run_chaoxing():

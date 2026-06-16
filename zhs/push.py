@@ -12,7 +12,7 @@ import requests
 
 def pushpluser(title: str, content, token: str) -> None:
     requests.get(
-        f"http://www.pushplus.plus/send?token={token}&title={title}&content={content}",
+        f"https://www.pushplus.plus/send?token={token}&title={title}&content={content}",
         timeout=15)
 
 

@@ -18,4 +18,4 @@ class GlobalConst:
         "Referer": "https://mooc1.chaoxing.com/ananas/modules/audio/index_new.html?v=2025-0725-1842",
     }
 
-    THRESHOLD = 1
+    POLL_INTERVAL = 1  # 视频进度轮询间隔（秒）

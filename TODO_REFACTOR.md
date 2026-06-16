@@ -90,28 +90,28 @@
 
 ## 🟡 屎山重构
 
-- [ ] `welearn/welearn_decompiled.py:584-979` — `__main__` 块 396 行，7 层嵌套。拆分为独立函数
-- [ ] `zhs/fucker.py` — 2345 行巨石文件，4 个类各自拆成独立模块
-- [ ] `chaoxing/api/base.py:776-1148` — `study_work()` 372 行，带 FIXME 注释。拆成独立类
-- [ ] `welearn/welearn_decompiled.py:128-134` — 模块级全局变量 `uid`/`cid`/`way1Succeed` 等，多线程无锁访问
-- [ ] `yuketang/main.py:120` — `COOKIE_STRING, UNIVERSITY_ID = _ensure_login()` 模块级副作用，import 时触发登录
-- [ ] `zhs/push.py:15` — pushplus 使用明文 HTTP，Token 泄露风险
+- [ ] `welearn/welearn_decompiled.py:584-979` — `__main__` 块 396 行，7 层嵌套。拆分为独立函数（大重构，单独 PR）
+- [ ] `zhs/fucker.py` — 2345 行巨石文件，4 个类各自拆成独立模块（大重构，单独 PR）
+- [ ] `chaoxing/api/base.py:776-1148` — `study_work()` 372 行，带 FIXME 注释。拆成独立类（大重构，单独 PR）
+- [ ] `welearn/welearn_decompiled.py:128-134` — 模块级全局变量 `uid`/`cid`/`way1Succeed` 等，多线程无锁访问（需深入理解线程模型）
+- [x] ~~`yuketang/main.py:120`~~ — `COOKIE_STRING, UNIVERSITY_ID = _ensure_login()` → 延迟初始化 `_get_cookies()`/`_get_uni_id()`
+- [x] ~~`zhs/push.py:15`~~ — pushplus HTTP → HTTPS
 
 ---
 
 ## 🟢 小修小补
 
-- [ ] `main.py:23` — 硬编码 conda 路径 `D:\CondaEnvs\fuckcourse\python.exe`，应去掉或用 `CONDA_PREFIX` 推导
-- [ ] `main.py:30` — `os.system("cls")` 可用 ANSI 转义序列替代，更快
-- [ ] `main.py:74,92-96` — `except KeyboardInterrupt` 内调 `input()`，二次 Ctrl+C 会崩溃
-- [ ] `chaoxing/api/answer.py:1099` — 裸 `except:` 会吞掉 `SystemExit`/`KeyboardInterrupt`
-- [ ] `chaoxing/main.py:95-139` — 默认配置值全存为字符串，应使用原生类型（bool/int/float）
-- [ ] `chaoxing/api/answer.py:183-184` — `"".split(',')` 返回 `['']` 而非 `[]`，应过滤空串
-- [ ] `chaoxing/api/config.py:21` — `THRESHOLD = 1` 命名不清晰
-- [ ] `zhs/logger.py:66-67` — `exception` 属性遮蔽 `logging.Logger.exception` 方法，容易误导
-- [ ] `zhs/fucker.py:1115` — `zhidaoAiExamQuery` 是 `zhidaoQuery` 的无意义包装
-- [ ] `zhs/zd_utils.py:20,24` — staticmethod 当实例方法调用
-- [ ] `zhs/fucker.py` — 14 个 magic number 应提为常量（如 `0.0025`/`0.91`/`1.5`/`30`/`18`/`60`/`5` 等）
-- [ ] `welearn/welearn_decompiled.py` — 11 个裸 `except Exception:` 无日志，排查困难
-- [ ] `yuketang/main.py:261` — 函数内 `import datetime`，应移到文件顶部
-- [ ] `yuketang/yuketang_login.py:34` — `_show_image` 的 `show_in_terminal` 参数永远是 `True`，死参数
+- [x] ~~`main.py:23`~~ — 硬编码 conda 路径已移除，始终用 `sys.executable`
+- [x] ~~`main.py:30`~~ — `os.system("cls")` → ANSI `\033[2J\033[H`
+- [x] ~~`main.py:74,92-96`~~ — KeyboardInterrupt 内 `input()` 移到独立的 `print()` 后，避免二次 Ctrl+C 吞异常
+- [x] ~~`chaoxing/api/answer.py:1099`~~ — 裸 `except:` → `except Exception:`
+- [ ] `chaoxing/main.py:95-139` — 默认配置值全存为字符串，应使用原生类型（⚠️ 改配置格式，单独 PR）
+- [ ] `chaoxing/api/answer.py:183-184` — `"".split(',')` 返回 `['']` 而非 `[]`（⚠️ 未能定位实际代码行）
+- [x] ~~`chaoxing/api/config.py:21`~~ — `THRESHOLD = 1` → `POLL_INTERVAL = 1`
+- [ ] `zhs/logger.py:66-67` — `exception` 属性命名（⚠️ 非功能性 bug，改属性名会破坏 22 处调用）
+- [ ] `zhs/fucker.py:1115` — `zhidaoAiExamQuery` 不是无意义包装：相比 `zhidaoQuery` 多了 `_checkCookies()`+`_sessionReady()`
+- [x] ~~`zhs/zd_utils.py:20,24`~~ — staticmethod `self.pad()`/`self.unpad()` → `Cipher.pad()`/`Cipher.unpad()`
+- [ ] `zhs/fucker.py` — 14 个 magic number 应提为常量（⚠️ 需逐一定位替换，单独 PR）
+- [ ] `welearn/welearn_decompiled.py` — 11 个裸 `except Exception:`（⚠️ 部分已有日志，剩余影响小）
+- [x] ~~`yuketang/main.py:261`~~ — 函数内 `import datetime` 移到文件顶部
+- [x] ~~`yuketang/yuketang_login.py:34`~~ — `_show_image` 死参数 `show_in_terminal` 已移除

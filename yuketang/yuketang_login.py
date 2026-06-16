@@ -31,9 +31,8 @@ logging.basicConfig(
 # ── 终端 QR 码渲染（移植自 zhs/utils.py） ──────────────────────────
 
 
-def _show_image(img_bytes, show_in_terminal=True):
-    if show_in_terminal:
-        _terminal_qr_tty(img_bytes)
+def _show_image(img_bytes):
+    _terminal_qr_tty(img_bytes)
 
 
 def _terminal_qr_tty(img_bytes):

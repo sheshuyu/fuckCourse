@@ -679,7 +679,7 @@ class Chaoxing:
         _crc = _video_info["crc"]
         _key = _video_info["key"]
 
-        # Time in the real world: last_iter, gc.THRESHOLD
+        # Time in the real world: last_iter, gc.POLL_INTERVAL
         # Time in the video (can be scaled with the speed factor): duration, play_time, last_log_time, wait_time
 
         duration = int(_video_info["duration"])

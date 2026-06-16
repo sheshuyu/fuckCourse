@@ -27,11 +27,11 @@ class Cipher:
 
     def encrypt(self, data:str):
         cipher = AES.new(self.key, AES.MODE_CBC, self.iv)
-        return b64encode(cipher.encrypt(self.pad(data))).decode()
+        return b64encode(cipher.encrypt(Cipher.pad(data))).decode()
 
     def decrypt(self, data:str):
         cipher = AES.new(self.key, AES.MODE_CBC, self.iv)
-        return self.unpad(cipher.decrypt(b64decode(data)))
+        return Cipher.unpad(cipher.decrypt(b64decode(data)))
 
 class WatchPoint:
     def __init__(self, init:int=0):
