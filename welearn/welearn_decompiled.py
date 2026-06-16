@@ -21,9 +21,41 @@ logging.basicConfig(
     encoding="utf-8",
 )
 
+USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+
+
+def _build_cmi_data(scaled_score="100", session_time="0", total_time="0"):
+    """构建 CMI 数据 JSON 字符串"""
+    return json.dumps({
+        "cmi": {
+            "completion_status": "completed",
+            "interactions": [],
+            "launch_data": "",
+            "progress_measure": "1",
+            "score": {"scaled": scaled_score, "raw": "100"},
+            "session_time": session_time,
+            "success_status": "unknown",
+            "total_time": total_time,
+            "mode": "normal"
+        },
+        "adl": {"data": []},
+        "cci": {
+            "data": [],
+            "service": {
+                "dictionary": {"headword": "", "short_cuts": ""},
+                "new_words": [], "notes": [], "writing_marking": [],
+                "record": {"files": []},
+                "play": {"offline_media_id": "9999"}
+            },
+            "retry_count": "0",
+            "submit_time": ""
+        }
+    })
+
+
 session = Session()
 session.headers.update({
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    'User-Agent': USER_AGENT
 })
 
 # Cookie 持久化
@@ -51,6 +83,17 @@ def load_welearn_config():
             json.dump(root, f, indent=4, ensure_ascii=False)
         return WELEARN_DEFAULTS.copy()
     return section
+
+
+# 配置缓存，避免每次重复读磁盘（运行时被调用 3 次，仅首读有效）
+_config_cache = None
+
+
+def _get_welearn_config_cached():
+    global _config_cache
+    if _config_cache is None:
+        _config_cache = load_welearn_config()
+    return _config_cache
 
 
 def _save_welearn_credentials(username, password):
@@ -183,7 +226,7 @@ def sso_login(username, password):
 
     sso = Session()
     sso.headers.update({
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        'User-Agent': USER_AGENT
     })
 
     # Step 1: 获取OIDC授权URL
@@ -296,7 +339,7 @@ def startstudy(learntime, x):
     # 每个任务用独立session，避免状态污染
     s = Session()
     s.headers.update({
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        'User-Agent': USER_AGENT
     })
     s.cookies.update(session.cookies)
 
@@ -305,31 +348,7 @@ def startstudy(learntime, x):
     referrer = 'https://welearn.sflep.com/student/StudyCourse.aspx'
 
     # CMI数据模板
-    cmi_data = json.dumps({
-        "cmi": {
-            "completion_status": "completed",
-            "interactions": [],
-            "launch_data": "",
-            "progress_measure": "1",
-            "score": {"scaled": str(learntime), "raw": "100"},
-            "session_time": "0",
-            "success_status": "unknown",
-            "total_time": "0",
-            "mode": "normal"
-        },
-        "adl": {"data": []},
-        "cci": {
-            "data": [],
-            "service": {
-                "dictionary": {"headword": "", "short_cuts": ""},
-                "new_words": [], "notes": [], "writing_marking": [],
-                "record": {"files": []},
-                "play": {"offline_media_id": "9999"}
-            },
-            "retry_count": "0",
-            "submit_time": ""
-        }
-    })
+    cmi_data = _build_cmi_data(scaled_score=str(learntime))
 
     # 开始学习
     back = s.post(url, data={
@@ -403,7 +422,7 @@ def startstudy_time(task_idx, statuses, target_time, x):
     # 每个线程独立session
     ts = Session()
     ts.headers.update({
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        'User-Agent': USER_AGENT
     })
     ts.cookies.update(session.cookies)
 
@@ -455,31 +474,7 @@ def startstudy_time(task_idx, statuses, target_time, x):
             break
 
     # 设置CMI数据
-    cmi_data = json.dumps({
-        "cmi": {
-            "completion_status": "completed",
-            "interactions": [],
-            "launch_data": "",
-            "progress_measure": "1",
-            "score": {"scaled": "100", "raw": "100"},
-            "session_time": str(session_time),
-            "success_status": "unknown",
-            "total_time": str(total_time),
-            "mode": "normal"
-        },
-        "adl": {"data": []},
-        "cci": {
-            "data": [],
-            "service": {
-                "dictionary": {"headword": "", "short_cuts": ""},
-                "new_words": [], "notes": [], "writing_marking": [],
-                "record": {"files": []},
-                "play": {"offline_media_id": "9999"}
-            },
-            "retry_count": "0",
-            "submit_time": ""
-        }
-    })
+    cmi_data = _build_cmi_data(session_time=str(session_time), total_time=str(total_time))
 
     ts.post(url, data={
         'action': 'setscoinfo',
@@ -512,7 +507,7 @@ def auto_login(banner_version):
     """自动登录: 配置文件凭据 → 交互式"""
     global session
 
-    config = load_welearn_config()
+    config = _get_welearn_config_cached()
 
     # Step 1: 尝试配置文件账号密码自动登录
     username = config.get("username", "").strip()
@@ -668,7 +663,7 @@ if __name__ == '__main__':
         info = response.json()
 
         # 加载 tree_view 配置
-        welearn_config = load_welearn_config()
+        welearn_config = _get_welearn_config_cached()
         tree_view = welearn_config.get("tree_view", True)
 
         # SCO 缓存 (unit_index -> items)，树形打印时填充，后续构建 task_list 复用
@@ -859,7 +854,7 @@ if __name__ == '__main__':
 
         # ========== 刷时长模式：多线程并发，主循环定时刷新显示 ==========
         if mode == '2':
-            welearn_config = load_welearn_config()
+            welearn_config = _get_welearn_config_cached()
             progressbar_view = welearn_config.get("progressbar_view", True)
             N = len(task_list)
             max_loc_len = max(len(t['location']) for t in task_list)

@@ -16,13 +16,14 @@ import time
 import io
 import logging
 import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from PIL import Image
 
 # ── 自动扫码登录 ────────────────────────────────────────────────────
 from yuketang_login import (
     load_config, save_config, validate_cookies, qr_login,
-    fetch_classroom_list,
+    fetch_classroom_list, USER_AGENT,
 )
 
 _here = Path(__file__).parent
@@ -58,6 +59,48 @@ def _ensure_login():
     return cookies, uni_id
 
 
+def _interactive_select(items, label_fn=str, select_all_label="全部下载",
+                         prompt="选择"):
+    """交互式多选菜单，返回选中的 items 子集
+
+    Args:
+        items: 选项列表
+        label_fn: 每个选项的显示标签生成函数
+        select_all_label: "全选"选项的显示文字
+        prompt: 输入提示文字
+    Returns:
+        选中的 items 列表（'a' 全选返回全部；'q' 直接退出）
+    """
+    print(f"\n共 {len(items)} 项：")
+    for i, item in enumerate(items):
+        print(f"  [{i + 1}] {label_fn(item)}")
+
+    print(f"  [a] {select_all_label}")
+    print("  [q] 退出")
+    choice = input(f"\n{prompt}（多个用逗号分隔）: ").strip()
+
+    if choice.lower() == "a":
+        return items
+    if choice.lower() == "q":
+        print("已退出")
+        sys.exit(0)
+
+    selected = []
+    for part in choice.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            idx = int(part) - 1
+            if 0 <= idx < len(items):
+                selected.append(items[idx])
+            else:
+                print(f"  无效编号: {part}")
+        except ValueError:
+            print(f"  无效输入: {part}")
+    return selected
+
+
 def _resolve_classroom_ids():
     """确定要下载的课堂 ID 列表
 
@@ -82,39 +125,14 @@ def _resolve_classroom_ids():
         raw = input("请输入课堂 ID（多个用逗号分隔）: ").strip()
         return [cid.strip() for cid in raw.split(",") if cid.strip()]
 
-    print(f"\n共 {len(courses)} 个课堂：")
-    for i, c in enumerate(courses):
-        label = c.get("course_name") or c.get("name") or c["id"]
-        print(f"  [{i + 1}] {label}  (id={c['id']})")
-
-    print("  [a] 全部下载")
-    print("  [q] 退出")
-    choice = input("\n选择（多个用逗号分隔）: ").strip()
-
-    if choice.lower() == "a":
-        ids = [c["id"] for c in courses]
-    elif choice.lower() == "q":
-        print("已退出")
-        sys.exit(0)
-    else:
-        ids = []
-        for part in choice.split(","):
-            part = part.strip()
-            if not part:
-                continue
-            try:
-                idx = int(part) - 1
-                if 0 <= idx < len(courses):
-                    ids.append(courses[idx]["id"])
-                else:
-                    print(f"  无效编号: {part}")
-            except ValueError:
-                print(f"  无效输入: {part}")
-        if not ids:
-            print("未选择任何课堂")
-            sys.exit(1)
-
-    return ids
+    selected = _interactive_select(
+        courses,
+        label_fn=lambda c: f"{c.get('course_name') or c.get('name') or c['id']}  (id={c['id']})",
+    )
+    if not selected:
+        print("未选择任何课堂")
+        sys.exit(1)
+    return [c["id"] for c in selected]
 
 
 COOKIE_STRING, UNIVERSITY_ID = _ensure_login()
@@ -152,11 +170,7 @@ def build_session(cookies: dict, classroom_id: str) -> requests.Session:
     session.headers.update({
         "Accept": "application/json, text/plain, */*",
         "Accept-Language": "zh-CN,zh;q=0.9",
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/120.0.0.0 Safari/537.36"
-        ),
+        "User-Agent": USER_AGENT,
         "X-CSRFToken": csrf_token,
         "X-Client": "web",
         "Xt-Agent": "web",
@@ -260,8 +274,7 @@ def _select_lessons(lessons: list) -> list:
     """交互选择要下载的课件，返回选中的 lesson 列表"""
     from datetime import datetime
 
-    print(f"\n共 {len(lessons)} 节课：")
-    for i, lesson in enumerate(lessons):
+    def _label(lesson):
         ts = lesson.get("create_time", 0)
         date_str = ""
         if ts:
@@ -269,33 +282,9 @@ def _select_lessons(lessons: list) -> list:
                 date_str = datetime.fromtimestamp(ts / 1000).strftime("%m-%d %H:%M")
             except Exception:
                 pass
-        title = lesson.get("title", "")
-        print(f"  [{i + 1}] {date_str}  {title}")
+        return f"{date_str}  {lesson.get('title', '')}"
 
-    print("  [a] 全部下载")
-    print("  [q] 退出")
-    choice = input("\n选择（多个用逗号分隔）: ").strip()
-
-    if choice.lower() == "a":
-        return lessons
-    if choice.lower() == "q":
-        print("已退出")
-        sys.exit(0)
-
-    selected = []
-    for part in choice.split(","):
-        part = part.strip()
-        if not part:
-            continue
-        try:
-            idx = int(part) - 1
-            if 0 <= idx < len(lessons):
-                selected.append(lessons[idx])
-            else:
-                print(f"  无效编号: {part}")
-        except ValueError:
-            print(f"  无效输入: {part}")
-    return selected
+    return _interactive_select(lessons, label_fn=_label)
 
 
 def _download_lesson(session, lesson, idx, total, classroom_dir):
@@ -323,11 +312,19 @@ def _download_lesson(session, lesson, idx, total, classroom_dir):
             continue
 
         print(f"  下载 {len(slides)} 张幻灯片 …")
-        images = []
-        for i, slide in enumerate(slides):
-            print(f"    第 {i + 1}/{len(slides)} 张", end="\r", flush=True)
-            images.append(download_image(session, slide["cover"]))
-            time.sleep(0.05)
+        images = [None] * len(slides)
+        # 线程池并发下载，4 线程
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            futures = {
+                pool.submit(download_image, session, slide["cover"]): i
+                for i, slide in enumerate(slides)
+            }
+            done = 0
+            for future in as_completed(futures):
+                idx = futures[future]
+                images[idx] = future.result()
+                done += 1
+                print(f"    第 {done}/{len(slides)} 张", end="\r", flush=True)
 
         print()
         if images_to_pdf(images, out_path):

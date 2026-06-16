@@ -50,17 +50,17 @@
 
 ## 🟠 重复代码
 
-- [ ] `yuketang/yuketang_login.py:167` vs `yuketang/main.py:138` — cookie 字符串解析器两份完全相同的实现，保留一份
-- [ ] `chaoxing/main.py:199` vs `chaoxing/api/base.py:121` — 凭据保存到 config.json 的逻辑重复
-- [ ] `chaoxing/api/answer.py:1005,1157` — `remove_md_json_wrapper` 内嵌函数 copy-paste 两次
-- [ ] `chaoxing/api/base.py:841` vs `chaoxing/api/answer_check.py:61` — 答案切分 `multi_cut` / `cut` 重复
-- [ ] `zhs/fucker.py:447-451,952-956,1279` — 终端宽度获取逻辑重复 3 次
-- [ ] `zhs/fucker.py:507,763,811,844` — `b64encode(str(token_id).encode()).decode()` 重复 4 次
-- [ ] `zhs/fucker.py:161-163,375-377,878-880` — Origin/Referer 头设置重复 3 次
-- [ ] `welearn/welearn_decompiled.py:331-355,481-505` — `cmi_data` JSON blob 重复（24行）
-- [ ] `welearn/welearn_decompiled.py:652-668,679-696` — 重试+退避逻辑重复
-- [ ] `welearn/welearn_decompiled.py` + `yuketang/` — User-Agent 字符串硬编码 6 处，提取为常量
-- [ ] `yuketang/main.py:85-115,275-298` — 交互式多选菜单实现重复
+- [x] ~~`yuketang/yuketang_login.py` vs `yuketang/main.py`~~ — cookie 解析器保留两份（不同模块，避免循环导入）
+- [x] ~~`chaoxing/main.py:199` vs `chaoxing/api/base.py:121`~~ — 凭据保存合并到 `_save_credentials_to_config`
+- [x] ~~`chaoxing/api/answer.py:1005,1157`~~ — `remove_md_json_wrapper` 提为模块级 `_remove_md_json_wrapper`
+- [ ] `chaoxing/api/base.py:841` vs `chaoxing/api/answer_check.py:61` — `multi_cut` / `cut` 共享 `cut_char` 列表（`multi_cut` 已调用 `cut`，仅 `cut_char` 定义重复，影响小）
+- [x] ~~`zhs/fucker.py:447-451,952-956,1279`~~ — 终端宽度 → `_get_term_width()`
+- [x] ~~`zhs/fucker.py:507,763,811,844`~~ — `b64encode(token_id)` → `_encode_token()`
+- [x] ~~`zhs/fucker.py:161-163,375-377,878-880`~~ — Origin/Referer 头 → `_set_origin_referer()`
+- [x] ~~`welearn/welearn_decompiled.py:331-355,481-505`~~ — `cmi_data` JSON blob → `_build_cmi_data()`
+- [x] ~~`welearn/welearn_decompiled.py:652-668,679-696`~~ — 重试+退避逻辑重复 → ⚠️ 模式相似但不完全相同，暂保留
+- [x] ~~`welearn/welearn_decompiled.py` + `yuketang/`~~ — User-Agent 6 处 → `USER_AGENT` 常量（welearn 定义，yuketang 已有复用）
+- [x] ~~`yuketang/main.py:85-115,275-298`~~ — 多选菜单 → `_interactive_select()`
 
 ---
 
@@ -68,23 +68,23 @@
 
 ### 高影响
 
-- [ ] `chaoxing/api/answer.py:219` — 每次查题新建 `CacheDAO()` → 读/写磁盘，50题=150次 I/O。应改为单例 + 内存缓存
-- [ ] `chaoxing/api/base.py:462` — 每个章节固定遍历 `"0123456"` 7 个卡片号发 HTTP 请求，大部分章节仅 1-2 个。应早停
-- [ ] `chaoxing/api/base.py:694-738` — 视频等待用 `while not passed` + `time.sleep(1)` 忙等，30-90秒视频产生大量无效循环。应用 `time.sleep(wait_time)` 替代
-- [ ] `yuketang/main.py:327-330` — PPT 图片逐张阻塞下载，每张 sleep(0.05)。应用线程池并发
+- [x] ~~`chaoxing/api/answer.py:219`~~ — `CacheDAO` 单例 + 内存缓存，`get_cache` 零 I/O
+- [x] ~~`chaoxing/api/base.py:462`~~ — 卡片遍历早停：连续 2 轮空返则 break
+- [x] ~~`chaoxing/api/base.py:694-738`~~ — 视频忙等优化：计算精确等待时间，替代每秒 sleep
+- [x] ~~`yuketang/main.py:327-330`~~ — PPT 图片 ThreadPoolExecutor 4 线程并发下载
 
 ### 中影响
 
-- [ ] `chaoxing/api/base.py:662-663` — 视频状态接口同一次调用中请求了两次
+- [x] ~~`chaoxing/api/base.py:662-663`~~ — ⚠️ 实际是 `_refresh_video_status` 和 `study_video` 分别构造同一 URL（不同调用路径），非重复请求
 - [ ] `chaoxing/api/base.py:776-1148` — `study_work()` 内 9 个内嵌函数每次调用重新编译，应提升为模块级
-- [ ] `welearn/welearn_decompiled.py:538,702,893` — 配置文件每次运行读 3 次，应缓存
-- [ ] `zhs/fucker.py:1590-1629` — `readAnswerCache` 重试时重复读磁盘，应先检查内存缓存
+- [x] ~~`welearn/welearn_decompiled.py:538,702,893`~~ — `_get_welearn_config_cached()` 首次读后缓存
+- [x] ~~`zhs/fucker.py:1590-1629`~~ — ⚠️ `readAnswerCache` 仅调用一次，已存 `self.answerCache` 内存中，无需优化
 
 ### 低影响
 
-- [ ] `zhs/fucker.py:1826` — 缓存命中后仍 `sleep(randint(3,5))` 模拟网络延迟，没必要
-- [ ] `zhs/fucker.py:1076-1086` — `_apiQuery` 中 Content-Type 头在并发场景下可能竞态
-- [ ] `zhs/push.py:14,19` — 推送请求无 `timeout`，可能永久阻塞
+- [x] ~~`zhs/fucker.py:1826`~~ — 缓存命中后去掉 `sleep(3-5s)`
+- [ ] `zhs/fucker.py:1076-1086` — `_apiQuery` 中 Content-Type 头在并发场景下可能竞态（低影响，暂不改）
+- [x] ~~`zhs/push.py:14,19`~~ — 推送请求添加 `timeout=15`
 
 ---
 

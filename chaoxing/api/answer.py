@@ -35,14 +35,30 @@ class CacheDAO:
     """
     @Author: SocialSisterYi
     @Reference: https://github.com/SocialSisterYi/xuexiaoyi-to-xuexitong-tampermonkey-proxy
+
+    单例 + 内存缓存：首次初始化时加载全部缓存到内存，后续查询/写入均走内存，
+    写入时同步写磁盘（保持原子写入），避免每次查题都读磁盘（50 题 = -100 次 I/O）。
     """
     DEFAULT_CACHE_FILE = "cache.json"
 
-    def __init__(self, file: str = DEFAULT_CACHE_FILE):
-        self.cache_file = Path(file)
+    _instance = None
+    _cache = None
+
+    def __new__(cls, file: str = None):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
+
+    def __init__(self, file: str = None):
+        if self._initialized:
+            return
+        self._initialized = True
+
+        self.cache_file = Path(file or self.DEFAULT_CACHE_FILE)
         self._lock = threading.RLock()
-        if not self.cache_file.is_file():
-            self._write_cache({})
+        self._dirty = False
+        self.__class__._cache = self._read_cache()
 
     def _read_cache(self) -> dict:
         # 新增缓存文件读取的异常处理
@@ -130,15 +146,12 @@ class CacheDAO:
             logger.error(f"Failed to write cache: {e}")
 
     def get_cache(self, question: str) -> Optional[str]:
-        data = self._read_cache()
-        return data.get(question)
+        return self.__class__._cache.get(question)
 
     def add_cache(self, question: str, answer: str) -> None:
-        # 为缓存写入加锁，防止并发写入损坏文件
         with self._lock:
-            data = self._read_cache()
-            data[question] = answer
-            self._write_cache(data)
+            self.__class__._cache[question] = answer
+            self._write_cache(self.__class__._cache)
 
 
 # TODO: 重构此部分代码，将此类改为抽象类，加载题库方法改为静态方法，禁止直接初始化此类

@@ -51,6 +51,29 @@ import tiktoken
 ⣿⣿⣿⣶⣶⣮⣥⣒⠲⢮⣝⡿⣿⣿⡆⣿⡿⠃⠄⠄⠄⠄⠄⠄⠄⣠⣴⣿⣿⣿
 """
 
+# ── 模块级工具函数 ──────────────────────────────────────────────────
+
+def _get_term_width(fallback=80):
+    """获取终端宽度（列数），失败时返回 fallback"""
+    try:
+        return os.get_terminal_size().columns - 1
+    except Exception:
+        return fallback
+
+
+def _encode_token(token_id):
+    """对 token_id 进行 base64 编码"""
+    return b64encode(str(token_id).encode()).decode()
+
+
+def _set_origin_referer(session, origin, referer=None):
+    """设置 session 的 Origin 和 Referer 头"""
+    session.headers.update({
+        "Origin": origin,
+        "Referer": referer or f"{origin}/"
+    })
+
+
 class TimeLimitExceeded(TimeoutError):
     pass
 
@@ -158,10 +181,7 @@ class Fucker:
         valid_url = "https://passport.zhihuishu.com/user/validateAccountAndPassword"
         check_url = "https://appcomm-user.zhihuishu.com/app-commserv-user/userInfo/checkNeedAuth"
         self._sessionReady() # set cookies, headers, proxies
-        self.session.headers.update({
-            "Origin": "https://passport.zhihuishu.com",
-            "Referer": login_page
-        })
+        _set_origin_referer(self.session, "https://passport.zhihuishu.com", login_page)
         try:
             self.session.get(login_page, proxies=self.proxies, timeout=10)
             form = {
@@ -328,10 +348,7 @@ class Fucker:
         logger.info(f"Getting context for {RAC_id}")
 
         self._sessionReady()        # set cookies, headers, proxies
-        self.session.headers.update({
-            "Origin": "https://studyh5.zhihuishu.com",
-            "Referer": "https://studyh5.zhihuishu.com/"
-        })
+        _set_origin_referer(self.session, "https://studyh5.zhihuishu.com")
         # cross sites login
         self.gologin(RAC_id)
 
@@ -399,12 +416,7 @@ class Fucker:
         tprint(f"Fucking Zhidao course: {course.courseInfo.name or course.courseInfo.enName}")
         begin_time = time.time() # real world time
         prefix = self.prefix # prefix for tree-like print
-        try:
-            # 在 nohup 下运行无法获取，进行捕获
-            w_lim = os.get_terminal_size().columns-1 # width limit for terminal output
-        except Exception as e:
-            # 考虑直接移除此变量，但是保留原代码风格，故进行赋值
-            w_lim = 80
+        w_lim = _get_term_width()
         try:
             for chapter in chapters.videoChapterDtos:
                 tprint(prefix) # extra line as separator
@@ -460,7 +472,7 @@ class Fucker:
             return
         # get token id from pre learning note
         token_id = self.prelearningNote(RAC_id, video_id).studiedLessonDto.id
-        token_id = b64encode(str(token_id).encode()).decode()
+        token_id = _encode_token(token_id)
 
         # get questions
         questions: ObjDict = self.loadVideoPointerInfo(RAC_id, video_id)
@@ -726,7 +738,7 @@ class Fucker:
             ]
         if not token_id:
             token_id = self.prelearningNote(RAC_id, video_id).studiedLessonDto.id
-            token_id = b64encode(str(token_id).encode()).decode()
+            token_id = _encode_token(token_id)
         data = {
             "ewssw": watch_point,
             "sdsew": getEv(raw_ev),
@@ -763,10 +775,7 @@ class Fucker:
             return self.context[course_id]
         self._checkCookies()
         self._sessionReady() # set cookies, headers, proxies
-        self.session.headers.update({
-            "Origin": "https://hike.zhihuishu.com",
-            "Referer": "https://hike.zhihuishu.com/"
-        })
+        _set_origin_referer(self.session, "https://hike.zhihuishu.com")
         root = self.queryResourceMenuTree(course_id)
         ctx = ObjDict({
             "root": root,
@@ -836,12 +845,7 @@ class Fucker:
     def _traverse(self,course_id, node: ObjDict, depth=0):
         depth += 1
         tprint = print if self.tree_view else lambda *a, **k: None
-        try:
-            # 在 nohup 下运行无法获取，进行捕获
-            w_lim = os.get_terminal_size().columns-1 # width limit for terminal output
-        except Exception as e:
-            # 考虑直接移除此变量，但是保留原代码风格，故进行赋值
-            w_lim = 80
+        w_lim = _get_term_width()
         prefix = self.prefix * depth
         if node.childList: # if childList is not None, then it's a chapter
             chapter = node
@@ -1164,7 +1168,7 @@ class Fucker:
 
             begin_time = time.time()  # real world time
             prefix = self.prefix  # prefix for tree-like print
-            w_lim = os.get_terminal_size().columns-1  # width limit for terminal output
+            w_lim = _get_term_width()
 
             cakeThemeList = knowledgePoints.cakeThemeList
         except Exception as e:
@@ -1709,9 +1713,6 @@ class ExamCtx:
         answer = self.getAnswer(questionId, version)
         if answer is not None:
             answer = answer.get("answer", "").split('#@#')
-
-            # 随机睡眠3-5秒，模拟网络延迟
-            time.sleep(randint(3, 5))
             return answer, "cached"
 
         # 答案不存在，获取题目内容，使用AI生成答案

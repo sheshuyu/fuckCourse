@@ -458,7 +458,8 @@ class Chaoxing:
             "mooc2": 1
         }
 
-        # 学习界面任务卡片数, 很少有3个的, 但是对于章节解锁任务点少一个都不行, 可以从API /mooc-ans/mycourse/studentstudyAjax获取值, 或者干脆直接加, 但二者都会造成额外的请求
+        # 学习界面任务卡片数, 很少有3个的. 逐个 num 请求，连续两轮无新卡则早停，避免 5-6 次无效 HTTP 请求
+        consecutive_empty = 0
         for _possible_num in "0123456":
 
             logger.trace("开始读取章节所有任务点...")
@@ -478,6 +479,13 @@ class Chaoxing:
 
             job_list += _job_list
             job_info.update(_job_info)
+
+            if _job_list:
+                consecutive_empty = 0
+            else:
+                consecutive_empty += 1
+                if consecutive_empty >= 2:
+                    break
 
         if not job_list:
             self.study_emptypage(course, point)
@@ -735,7 +743,9 @@ class Chaoxing:
             if play_time >= duration and not passed:
                 time.sleep(wait_time)
             else:
-                time.sleep(gc.THRESHOLD)
+                # 精确计算距下次上报的等待时间，替代原先每秒忙等
+                remaining = (last_log_time + wait_time - play_time) / max(_speed, 0.5)
+                time.sleep(max(0.5, min(remaining, 30)))
 
         _wipe_bar(_job["name"])
         logger.info("任务完成: {}", _job['name'])
