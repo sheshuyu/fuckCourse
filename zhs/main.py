@@ -1,5 +1,5 @@
 import os
-import re
+import sys
 import json
 import argparse
 import platform
@@ -118,8 +118,6 @@ parser.add_argument("-l", "--limit", type=int, default=0,
 parser.add_argument("-q", "--qrlogin", action="store_true",
                     help="Use QR Login")
 parser.add_argument("-d", "--debug", action="store_true", help="Debug Mode")
-parser.add_argument("-f", "--fetch", action="store_true",
-                    help="Fetch new course list")
 parser.add_argument("--show_in_terminal",
                     action="store_true", help="Show QR in terminal")
 parser.add_argument("--proxy", type=str,
@@ -277,83 +275,109 @@ def _validate_ppt_config(ppt_config):
             raise ValueError(f"PPT 配置不完整，缺少: {', '.join(missing)}")
 
 
-exec_list = os.environ.get("FUCKCOURSE_EXEC", getRealPath("execution.json"))
-# fetch course list
-if args.fetch:
-    with open(exec_list, "w") as f:
-        zhidao_ids = [{"name": c.courseName, "id": c.secret, "type": "zhidao"}
-                       for c in fucker.getZhidaoList()]
-        hike_ids = [{"name": c.courseName, "id": str(c.courseId), "type": "hike"}
-                    for c in fucker.getHikeList()]
-        entries = zhidao_ids + hike_ids
-        # AI 课程（仅在启用时收集）
-        ai_config = config.ai if config.ai and config.ai.get("enabled") else None
-        if ai_config:
-            try:
-                ai_ids = [{"name": c.courseName, "id": str(c.courseId),
-                           "type": "ai", "classId": str(c.classId)}
-                          for c in fucker.getZhidaoAiList()]
-                entries += ai_ids
-            except Exception as e:
-                print(f"获取 AI 课程列表失败: {e}")
-        json.dump(entries, f, indent=4, ensure_ascii=False)
-    exit(0)
+# ── 交互式课程选择 ──────────────────────────────────────────────
 
-# 从文件加载课程列表
-if not course and os.path.isfile(exec_list):
-    with open(exec_list, "r") as f:
+def _interactive_select_courses(fucker, ai_config):
+    """交互式课程选择 — 获取所有课程列表，编号展示，用户多选"""
+    print("正在获取课程列表...")
+
+    entries = []
+
+    # 知到课程
+    try:
+        for c in fucker.getZhidaoList():
+            entries.append({"name": c.courseName, "id": c.secret, "type": "zhidao"})
+    except Exception as e:
+        print(f"  获取知到课程失败: {e}")
+
+    # 共享课
+    try:
+        for c in fucker.getHikeList():
+            entries.append({"name": c.courseName, "id": str(c.courseId), "type": "hike"})
+    except Exception as e:
+        print(f"  获取共享课失败: {e}")
+
+    # AI 课程（仅在启用时）
+    if ai_config:
         try:
-            raw_list = json.load(f)
+            for c in fucker.getZhidaoAiList():
+                entries.append({
+                    "name": c.courseName, "id": str(c.courseId),
+                    "type": "ai", "classId": str(c.classId)
+                })
         except Exception as e:
-            print(f"*无法加载课程列表: {e}")
-            exit(1)
+            print(f"  获取 AI 课程失败: {e}")
 
-    # 准备 AI 配置（验证失败只警告，不阻塞普通课程）
-    ai_config = config.ai
-    if ai_config and ai_config.get("enabled"):
+    if not entries:
+        print("未找到任何课程！请确认已选课。")
+        return [], ai_config
+
+    # 展示菜单
+    type_labels = {"zhidao": "[知到]", "hike": "[共享课]", "ai": "[AI课]"}
+    print(f"\n{'=' * 50}")
+    print(f"共 {len(entries)} 门课程：")
+    print(f"{'=' * 50}")
+    for i, e in enumerate(entries):
+        label = type_labels.get(e["type"], "")
+        print(f"  [{i + 1:>2d}] {label} {e['name']}")
+    print(f"  [a] 全部刷取")
+    print(f"  [q] 退出")
+
+    choice = input(f"\n请选择课程（多个用逗号分隔）: ").strip()
+
+    if choice.lower() == "a":
+        return entries, ai_config
+    if choice.lower() == "q":
+        print("已退出")
+        sys.exit(0)
+
+    selected = []
+    for part in choice.split(","):
+        part = part.strip()
+        if not part:
+            continue
         try:
-            _validate_ai_config(ai_config)
-        except ValueError as e:
-            print(f"警告: AI 配置无效，跳过 AI 课程: {e}")
-            ai_config = None
+            idx = int(part) - 1
+            if 0 <= idx < len(entries):
+                selected.append(entries[idx])
+            else:
+                print(f"  无效编号: {part}")
+        except ValueError:
+            print(f"  无效输入: {part}")
 
-    for entry in raw_list:
-        entry_type = entry.get("type", "")
-        entry_id = str(entry["id"])
-        if entry_type == "ai":
-            if not ai_config:
-                print(f"  跳过 AI 课程 {entry.get('name', entry_id)}: AI 未启用或配置无效")
-                continue
-            try:
+    return selected, ai_config
+
+
+# AI 配置验证（验证一次，失败只警告不阻塞普通课程）
+ai_config = config.ai if config.ai and config.ai.get("enabled") else None
+if ai_config:
+    try:
+        _validate_ai_config(ai_config)
+    except ValueError as e:
+        print(f"警告: AI 配置无效，跳过 AI 课程: {e}")
+        ai_config = None
+
+# 交互式课程选择（无 --course 时）
+if not course:
+    selected_entries, ai_config = _interactive_select_courses(fucker, ai_config)
+    if not selected_entries:
+        print("未选择任何课程，退出。")
+        exit(1)
+
+    for entry in selected_entries:
+        entry_type = entry["type"]
+        entry_id = entry["id"]
+        try:
+            if entry_type == "ai":
                 fucker.fuckAiCourse(
                     int(entry_id), int(entry["classId"]), aiConfig=ai_config)
-            except Exception as e:
-                logger.exception(e)
-                print(f"  AI 课程 {entry_id} 出错: {e}")
-        elif entry_type == "zhidao" or re.match(r".*[a-zA-Z].*", entry_id):
-            try:
+            elif entry_type == "zhidao":
                 fucker.fuckZhidaoCourse(entry_id)
-            except Exception as e:
-                logger.exception(e)
-                print(f"  知到课程 {entry_id} 出错: {e}")
-        else:  # hike（纯数字，无 type 或 type=hike）
-            try:
+            else:  # hike
                 fucker.fuckHikeCourse(entry_id)
-            except Exception as e:
-                logger.exception(e)
-                print(f"  共享课 {entry_id} 出错: {e}")
-    exit(0)
-
-# 仍然没有课程 → 自动检测（fuckWhatever，现在包含 AI 课程）
-if not course:
-    ai_config = config.ai
-    if ai_config and ai_config.get("enabled"):
-        try:
-            _validate_ai_config(ai_config)
-        except ValueError as e:
-            print(f"警告: AI 配置无效，跳过 AI 课程: {e}")
-            ai_config = None
-    fucker.fuckWhatever(aiConfig=ai_config)
+        except Exception as e:
+            logger.exception(e)
+            print(f"  课程 {entry.get('name', entry_id)} 出错: {e}")
     exit(0)
 
 # 指定了课程 → 逐个处理（支持 --course 和 --videos）

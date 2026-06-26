@@ -1,23 +1,28 @@
 # fuckCourse 更新日志
 
-## v3.0.0-dev (2026-06-27)
+## v3.1.0-dev (2026-06-27)
 
 ### 新增
-- zhs: AI 课程接入主流程 — 菜单 `[3]` 自动发现并处理 AI 课程（之前只能手动 CLI `--aicourse`）
-- zhs: `execution.json` 迁移到根目录（通过 `FUCKCOURSE_EXEC` 环境变量），与其他 JSON 文件统一
-- zhs: `--fetch` 生成的 `execution.json` 增加 `type` 字段区分 zhidao/hike/ai，支持回放 AI 课程
+- zhs: AI 课程接入主流程 — 菜单 `[3]` 交互式课程选择，统一展示知到/共享课/AI 课程
+- zhs: `_interactive_select_courses()` — 运行时获取全部课程列表，编号展示，支持多选/全选/退出
 
 ### 重构
 - zhs: `--aicourse` / `--noexam` CLI 参数移除，AI 课程改为自动检测
+- zhs: `--fetch` CLI 参数移除，`execution.json` 文件缓存机制移除，改为运行时交互式选择
+- zhs: `FUCKCOURSE_EXEC` 环境变量移除
 - zhs: `_validate_ai_config()` / `_validate_openai_config()` / `_validate_ppt_config()` 提取为模块级函数
-- zhs: `execution.json` 加载从 flat list 改为按 `type` 分发，旧格式（无 `type`）按 ID 格式自动推断
 - zhs: `fuckWhatever()` 增加 `aiConfig` 参数，自动包含 AI 课程
+- zhs: `import re` 移除（不再需要 execution.json 类型回退推断）
 
 ### 修复
-- zhs: `import re` 补充（`execution.json` 回放时需要）
+- zhs: AI 课程与普通课程统一交互式选择，无需手动 `--fetch` 生成缓存文件
 
 ### 性能
 - zhs: AI 配置验证失败在自动检测路径中只警告跳过，不阻塞普通课程
+
+### 其他
+- 版本号 v3.0.0-dev → v3.1.0-dev
+- README: 新增 AI 配置文档；移除 yuketang CLI 参数示例（统一菜单驱动）；移除 execution.json 文档
 
 ---
 

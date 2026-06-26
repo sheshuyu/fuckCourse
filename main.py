@@ -1,4 +1,4 @@
-"""fuckCourse v3.0.0-dev — unified launcher for course automation tools."""
+"""fuckCourse v3.1.0-dev — unified launcher for course automation tools."""
 import os
 import sys
 
@@ -32,7 +32,6 @@ def _setup_env():
     os.environ["FUCKCOURSE_CONFIG"] = CONFIG_FILE
     os.environ["FUCKCOURSE_COOKIES"] = COOKIES_FILE
     os.environ["FUCKCOURSE_LOG_DIR"] = LOG_DIR
-    os.environ["FUCKCOURSE_EXEC"] = os.path.join(DATA_DIR, "execution.json")
 
 
 def _run(cwd, script_args, name):
@@ -116,7 +115,7 @@ def run_yuketang():
 
 def print_banner():
     print("=" * 50)
-    print("             fuckCourse v3.0.0-dev")
+    print("             fuckCourse v3.1.0-dev")
     print("             designed by snake")
     print("=" * 50)
     print()
