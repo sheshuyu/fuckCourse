@@ -271,8 +271,8 @@ class Fucker:
             logger.exception(e)
             raise Exception(f"QR login failed: {e}")
 
-    def fuckWhatever(self):
-        """Fuck whatever is found"""
+    def fuckWhatever(self, aiConfig=None):
+        """Fuck whatever is found (zhidao + hike + AI courses)"""
         zhidao_ids = [c.secret for c in self.getZhidaoList()]
         for i in zhidao_ids:
             try:
@@ -287,6 +287,21 @@ class Fucker:
             except Exception as e:
                 logger.exception(e)
                 continue
+        if aiConfig and aiConfig.get("enabled"):
+            try:
+                ai_list = self.getZhidaoAiList()
+                if ai_list:
+                    for course in ai_list:
+                        try:
+                            self.fuckAiCourse(course.courseId, course.classId,
+                                              aiConfig=aiConfig)
+                        except Exception as e:
+                            logger.exception(e)
+                            print(f"Error when fucking AI course {course.courseId}: {e}")
+                            continue
+            except Exception as e:
+                logger.exception(e)
+                print(f"Error getting AI course list: {e}")
 
     def fuckCourse(self, course_id:str):
         """

@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import argparse
 import platform
@@ -129,13 +130,6 @@ parser.add_argument("--progressbar_view", type=bool,
                     help="print the progressbar view of the course")
 parser.add_argument("--image_path", type=str,
                     help="Image save path, default is empty (do not save)")
-parser.add_argument("-ai", "--aicourse", type=str, nargs=2,
-                    metavar=('COURSE_ID', 'CLASS_ID'),
-                    help="AI Course ID and CLASS ID to fuck aiCourse")
-
-parser.add_argument("--noexam", type=bool,
-                    help="Disable AI exam")
-
 args = parser.parse_args()
 
 course = args.course
@@ -225,7 +219,7 @@ if save_cookies:
             if ls:
                 fucker.getHikeContext(ls[-1].courseId)
 
-            ls = fucker.getZhidaoAiList()
+            ls = fucker.getZhidaoAiList()  # 验证 session 对 AI 课程有效
             if ls:
                 pass
             print("Successfully recovered from saved cookies\n")
@@ -252,89 +246,117 @@ if not cookies_loaded:
 # notice that cookies of zhihuishu.com expires if you login again in somewhere else
 # fucker.cookies = {}
 
-if args.aicourse:
-    course_id, class_id = args.aicourse
-    try:
-        def validate_config(config):
-            ai_config = config.get("ai", {})
-            
-            if not isinstance(ai_config, dict):
-                raise ValueError("AI配置不是字典，请检查配置文件")
+# ── AI 配置验证（模块级，复用） ────────────────────────────────────────
 
-            if ai_config.get("enabled", False) and ai_config.get("use_zhidao_ai", False):
-                validate_openai_config(ai_config.get("openai", {}))
-            
-            validate_ppt_config(ai_config.get("ppt_processing", {}))
-
-        def validate_openai_config(openai_config):
-            if not isinstance(openai_config, dict):
-                raise ValueError(f"OpenAI配置不是字典，而是{type(openai_config)}，请检查配置文件")
-            
-            required_fields = ["api_key", "api_base", "model_name"]
-            missing_fields = [field for field in required_fields if not openai_config.get(field)]
-            
-            if missing_fields:
-                raise ValueError(f"OpenAI配置不完整，缺少以下字段：{', '.join(missing_fields)}。请检查配置文件")
-
-        def validate_ppt_config(ppt_config):
-            if not isinstance(ppt_config, dict):
-                raise ValueError(f"PPT处理配置不是字典，而是{type(ppt_config)}，请检查配置文件")
-            
-            if ppt_config.get("provide_to_ai", False):
-                moonShot_conf = ppt_config.get("moonShot", {})
-                required_fields = ["base_url", "api_key"]
-                missing_fields = [field for field in required_fields if not moonShot_conf.get(field)]
-                
-                if missing_fields:
-                    raise ValueError(f"PPT处理配置不完整，缺少以下字段：{', '.join(missing_fields)}。请检查配置文件")
-
-        # 使用示例
-        try:
-            validate_config(config)
-        except ValueError as e:
-            print(f"配置错误: {e}")
-            exit(1)
-
-        if args.noexam:
-            no_exam = True
-        else:
-            no_exam = False
-
-        fucker.fuckAiCourse(course_id, class_id, aiConfig=config.ai, no_exam = no_exam)
-    except Exception as e:
-        logger.exception(e)
-        print(f"Error when fucking AI course {course_id}:\n{e}")
-    finally:
-        print("AI exam finished")
-        exit(0)
+def _validate_ai_config(ai_config):
+    if not ai_config:
+        raise ValueError("AI 配置未找到")
+    if not isinstance(ai_config, dict):
+        raise ValueError(f"AI 配置不是字典，而是 {type(ai_config)}")
+    if ai_config.get("enabled") and ai_config.get("use_zhidao_ai"):
+        _validate_openai_config(ai_config.get("openai", {}))
+    _validate_ppt_config(ai_config.get("ppt_processing", {}))
 
 
-exec_list = getRealPath("execution.json")
+def _validate_openai_config(openai_config):
+    if not isinstance(openai_config, dict):
+        raise ValueError(f"OpenAI 配置不是字典，而是 {type(openai_config)}")
+    missing = [f for f in ["api_key", "api_base", "model_name"]
+               if not openai_config.get(f)]
+    if missing:
+        raise ValueError(f"OpenAI 配置不完整，缺少: {', '.join(missing)}")
+
+
+def _validate_ppt_config(ppt_config):
+    if not isinstance(ppt_config, dict):
+        raise ValueError(f"PPT 配置不是字典，而是 {type(ppt_config)}")
+    if ppt_config.get("provide_to_ai"):
+        moon = ppt_config.get("moonShot", {})
+        missing = [f for f in ["base_url", "api_key"] if not moon.get(f)]
+        if missing:
+            raise ValueError(f"PPT 配置不完整，缺少: {', '.join(missing)}")
+
+
+exec_list = os.environ.get("FUCKCOURSE_EXEC", getRealPath("execution.json"))
 # fetch course list
 if args.fetch:
     with open(exec_list, "w") as f:
-        zhidao_ids = [{"name": c.courseName, "id": c.secret}
-                      for c in fucker.getZhidaoList()]
-        hike_ids = [{"name": c.courseName, "id": str(
-            c.courseId)} for c in fucker.getHikeList()]
-        json.dump(zhidao_ids + hike_ids, f, indent=4, ensure_ascii=False)
+        zhidao_ids = [{"name": c.courseName, "id": c.secret, "type": "zhidao"}
+                       for c in fucker.getZhidaoList()]
+        hike_ids = [{"name": c.courseName, "id": str(c.courseId), "type": "hike"}
+                    for c in fucker.getHikeList()]
+        entries = zhidao_ids + hike_ids
+        # AI 课程（仅在启用时收集）
+        ai_config = config.ai if config.ai and config.ai.get("enabled") else None
+        if ai_config:
+            try:
+                ai_ids = [{"name": c.courseName, "id": str(c.courseId),
+                           "type": "ai", "classId": str(c.classId)}
+                          for c in fucker.getZhidaoAiList()]
+                entries += ai_ids
+            except Exception as e:
+                print(f"获取 AI 课程列表失败: {e}")
+        json.dump(entries, f, indent=4, ensure_ascii=False)
     exit(0)
 
-# get courses from file if not specified
+# 从文件加载课程列表
 if not course and os.path.isfile(exec_list):
     with open(exec_list, "r") as f:
         try:
-            course = [str(c["id"]) for c in json.load(f)]
+            raw_list = json.load(f)
         except Exception as e:
-            print(f"*Failed to load course list from file: {e}")
+            print(f"*无法加载课程列表: {e}")
             exit(1)
 
-# still not found?
-if not course:
-    fucker.fuckWhatever()
+    # 准备 AI 配置（验证失败只警告，不阻塞普通课程）
+    ai_config = config.ai
+    if ai_config and ai_config.get("enabled"):
+        try:
+            _validate_ai_config(ai_config)
+        except ValueError as e:
+            print(f"警告: AI 配置无效，跳过 AI 课程: {e}")
+            ai_config = None
+
+    for entry in raw_list:
+        entry_type = entry.get("type", "")
+        entry_id = str(entry["id"])
+        if entry_type == "ai":
+            if not ai_config:
+                print(f"  跳过 AI 课程 {entry.get('name', entry_id)}: AI 未启用或配置无效")
+                continue
+            try:
+                fucker.fuckAiCourse(
+                    int(entry_id), int(entry["classId"]), aiConfig=ai_config)
+            except Exception as e:
+                logger.exception(e)
+                print(f"  AI 课程 {entry_id} 出错: {e}")
+        elif entry_type == "zhidao" or re.match(r".*[a-zA-Z].*", entry_id):
+            try:
+                fucker.fuckZhidaoCourse(entry_id)
+            except Exception as e:
+                logger.exception(e)
+                print(f"  知到课程 {entry_id} 出错: {e}")
+        else:  # hike（纯数字，无 type 或 type=hike）
+            try:
+                fucker.fuckHikeCourse(entry_id)
+            except Exception as e:
+                logger.exception(e)
+                print(f"  共享课 {entry_id} 出错: {e}")
     exit(0)
 
-# auto detect mode
+# 仍然没有课程 → 自动检测（fuckWhatever，现在包含 AI 课程）
+if not course:
+    ai_config = config.ai
+    if ai_config and ai_config.get("enabled"):
+        try:
+            _validate_ai_config(ai_config)
+        except ValueError as e:
+            print(f"警告: AI 配置无效，跳过 AI 课程: {e}")
+            ai_config = None
+    fucker.fuckWhatever(aiConfig=ai_config)
+    exit(0)
+
+# 指定了课程 → 逐个处理（支持 --course 和 --videos）
 for c in course.copy():
     if args.videos:
         for v in args.videos:

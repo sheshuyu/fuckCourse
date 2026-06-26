@@ -8,6 +8,7 @@
 ├── main.py                  # 统一启动器，菜单选择平台 (subprocess 调度)
 ├── config.json              # 统一配置（首次运行自动生成）
 ├── cookies.json             # 统一 cookies（登录后自动保存）
+├── execution.json           # ZHS 课程缓存（--fetch 生成，回放无需 API）
 ├── requirements.txt         # Python 依赖
 ├── log.md                   # 更新日志
 ├── logs/                    # 运行日志（自动生成）
@@ -53,7 +54,7 @@
 |------|:---:|:---:|:---:|:---:|:---:|:---:|
 | 超星学习通 | Y | Y | Y | — | Y | Y |
 | WE Learn | Y | Y | Y | — | — | — |
-| 智慧树 | Y | Y | Y | — | — | Y |
+| 智慧树 | Y | Y | Y(含AI课程) | — | — | Y |
 | 雨课堂 | — | — | — | Y | — | — |
 
 ## 运行
@@ -210,6 +211,31 @@ URL 格式：
 |------|------|--------|------|
 | `enable` | boolean | `false` | 启用 Bark（iOS） |
 | `token` | string | `""` | Bark URL |
+
+**ai（AI 课程自动答题，需要有效的 API Key）**
+
+| 字段 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `enabled` | boolean | `true` | 是否启用 AI 课程自动处理 |
+| `use_zhidao_ai` | boolean | `true` | `true` 用智慧树内置 AI / `false` 用外部 OpenAI |
+
+**ai.openai（外部 OpenAI 兼容 API，use_zhidao_ai=false 时生效）**
+
+| 字段 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `api_base` | string | `"https://api.openai.com"` | API 地址 |
+| `api_key` | string | `"sk-"` | API Key |
+| `model_name` | string | `"claude-3-5-sonnet-20240620"` | 模型名 |
+
+**ai.ppt_processing（PPT 提供给 AI 作为参考材料，可选）**
+
+| 字段 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `provide_to_ai` | boolean | `false` | 是否将 PPT 文本发给 AI 辅助答题 |
+| `moonShot.base_url` | string | `"https://api.moonshot.cn/v1"` | MoonShot API 地址 |
+| `moonShot.api_key` | string | `"sk-"` | MoonShot API Key |
+
+AI 课程无需手动指定 ID — 菜单选择 `[3]` 后自动从 API 获取并处理。
 
 ### yuketang — 雨课堂
 

@@ -1,5 +1,26 @@
 # fuckCourse 更新日志
 
+## v3.0.0-dev (2026-06-27)
+
+### 新增
+- zhs: AI 课程接入主流程 — 菜单 `[3]` 自动发现并处理 AI 课程（之前只能手动 CLI `--aicourse`）
+- zhs: `execution.json` 迁移到根目录（通过 `FUCKCOURSE_EXEC` 环境变量），与其他 JSON 文件统一
+- zhs: `--fetch` 生成的 `execution.json` 增加 `type` 字段区分 zhidao/hike/ai，支持回放 AI 课程
+
+### 重构
+- zhs: `--aicourse` / `--noexam` CLI 参数移除，AI 课程改为自动检测
+- zhs: `_validate_ai_config()` / `_validate_openai_config()` / `_validate_ppt_config()` 提取为模块级函数
+- zhs: `execution.json` 加载从 flat list 改为按 `type` 分发，旧格式（无 `type`）按 ID 格式自动推断
+- zhs: `fuckWhatever()` 增加 `aiConfig` 参数，自动包含 AI 课程
+
+### 修复
+- zhs: `import re` 补充（`execution.json` 回放时需要）
+
+### 性能
+- zhs: AI 配置验证失败在自动检测路径中只警告跳过，不阻塞普通课程
+
+---
+
 ## v3.0.0-dev (2026-06-14)
 
 ### 修复

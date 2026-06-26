@@ -32,6 +32,7 @@ def _setup_env():
     os.environ["FUCKCOURSE_CONFIG"] = CONFIG_FILE
     os.environ["FUCKCOURSE_COOKIES"] = COOKIES_FILE
     os.environ["FUCKCOURSE_LOG_DIR"] = LOG_DIR
+    os.environ["FUCKCOURSE_EXEC"] = os.path.join(DATA_DIR, "execution.json")
 
 
 def _run(cwd, script_args, name):
